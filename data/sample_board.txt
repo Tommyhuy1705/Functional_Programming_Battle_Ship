@@ -1,0 +1,14 @@
+10 10  # Board dimensions (width height)
+
+# Ship placements (type x y orientation)
+Carrier 0 0 H
+Battleship 2 3 V
+Cruiser 5 5 H
+Submarine 7 2 V
+Destroyer 9 9 H
+
+# Test shots (x y expected_result)
+1 1 Miss
+2 3 Hit
+5 5 Hit
+7 2 Hit

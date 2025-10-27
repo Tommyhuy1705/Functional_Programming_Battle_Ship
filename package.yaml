@@ -1,0 +1,62 @@
+name: battleship
+version: 0.1.0
+github: "Tommyhuy1705/Functional_Programming_Battle_Ship"
+license: BSD3
+author: "Tommyhuy1705"
+maintainer: "your.email@example.com"
+copyright: "2025 Tommyhuy1705"
+
+extra-source-files:
+- README.md
+- LICENSE
+
+description: A networked Battleship game implementation in Haskell
+
+dependencies:
+- base >= 4.7 && < 5
+- network
+- aeson
+- text
+- bytestring
+- containers
+- mtl
+- transformers
+- async
+- stm
+
+library:
+  source-dirs: src
+
+executables:
+  battleship-server:
+    main: MainServer.hs
+    source-dirs: app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - battleship
+
+  battleship-client:
+    main: MainClient.hs
+    source-dirs: app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - battleship
+
+tests:
+  battleship-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - battleship
+    - hspec
+    - QuickCheck

@@ -1,0 +1,10 @@
+resolver: lts-21.17  # Use the latest LTS resolver
+
+packages:
+- .
+
+extra-deps: []
+
+flags: {}
+
+extra-package-dbs: []
