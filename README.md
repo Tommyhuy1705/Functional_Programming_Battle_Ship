@@ -2,42 +2,43 @@
 
 ## Project Structure
 ```plaintext
-battleship/
-│
 ├── app/
-│   ├── MainServer.hs      -- entrypoint chạy server
-│   ├── MainClient.hs      -- entrypoint chạy client
+│   ├── client/
+│   │   └── Main.hs         -- Client executable entrypoint
+│   └── server/ 
+│       └── Main.hs         -- Server executable entrypoint
 │
 ├── src/
 │   ├── Game/
-│   │   ├── Board.hs       -- định nghĩa bàn chơi, kích thước, trạng thái ô
-│   │   ├── Ship.hs        -- định nghĩa tàu (loại, kích thước, vị trí)
-│   │   ├── Logic.hs       -- logic trò chơi: bắn, trúng, chìm, thắng/thua
-│   │   ├── Player.hs      -- định nghĩa người chơi, lượt đi
-│   │   ├── State.hs       -- quản lý toàn bộ trạng thái game (Board + Player)
+│   │   ├── Board.hs       -- Board representation and operations
+│   │   ├── Ship.hs        -- Ship types and placement logic
+│   │   ├── Logic.hs       -- Game rules and shot mechanics
+│   │   ├── Player.hs      -- Player state management
+│   │   ├── State.hs       -- Game state and turn management
+│   │   └── Types.hs       -- Common type definitions
 │   │
 │   ├── Network/
-│   │   ├── Server.hs      -- quản lý socket server (listen, accept client)
-│   │   ├── Client.hs      -- socket client (connect, gửi/nhận)
-│   │   ├── Message.hs     -- định nghĩa message protocol (JSON / text)
+│   │   ├── Server.hs      -- Server socket and game management
+│   │   ├── Client.hs      -- Client connection and message handling
+│   │   └── Message.hs     -- Message protocol definitions
 │   │
 │   ├── Utils/
-│   │   ├── Parser.hs      -- parse input từ client
-│   │   ├── Serializer.hs  -- encode/decode message
-│   │   ├── Concurrency.hs -- thread, MVar, sync game turn
+│   │   ├── Parser.hs      -- Input parsing utilities
+│   │   ├── Serializer.hs  -- JSON encoding/decoding
+│   │   └── Concurrency.hs -- Thread and synchronization
 │   │
-│   └── Config.hs          -- cấu hình chung: port, IP, constants
+│   └── Config.hs          -- Application configuration
 │
 ├── test/
-│   ├── GameLogicSpec.hs   -- unit test logic game
-│   ├── NetworkSpec.hs     -- test message + connection
+│   ├── GameLogicSpec.hs   -- Game logic test suite
+│   └── NetworkSpec.hs     -- Network protocol tests
 │
 ├── data/
-│   ├── sample_board.txt   -- data mẫu (testing)
-│   ├── logs/              -- log server
+│   ├── sample_board.txt   -- Example board layouts
+│   └── logs/              -- Server logs directory
 │
-├── stack.yaml
-├── package.yaml
-├── README.md
-└── LICENSE
+├── stack.yaml             -- Stack build configuration
+├── package.yaml           -- Package dependencies and settings
+├── README.md             -- Project documentation
+└── LICENSE               -- BSD3 license
 ```
