@@ -1,5 +1,12 @@
 module Game.Board
-  ( initBoard, boardSize, getCell, setCell, inBounds, showBoard )
+  ( Board
+  , initBoard
+  , boardSize
+  , getCell
+  , setCell
+  , inBounds
+  , showBoard
+  )
 where
 
 import Game.Types

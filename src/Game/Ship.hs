@@ -3,6 +3,7 @@ module Game.Ship
 where
 
 import Game.Types
+import Game.Board (inBounds)
 
 data Ship = Ship
   { shipId :: Int

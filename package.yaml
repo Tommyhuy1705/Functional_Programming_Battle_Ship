@@ -29,8 +29,8 @@ library:
 
 executables:
   battleship-server:
-    main: MainServer.hs
-    source-dirs: app
+    main: Main.hs
+    source-dirs: app/server
     ghc-options:
     - -threaded
     - -rtsopts
@@ -39,8 +39,8 @@ executables:
     - battleship
 
   battleship-client:
-    main: MainClient.hs
-    source-dirs: app
+    main: Main.hs
+    source-dirs: app/client
     ghc-options:
     - -threaded
     - -rtsopts

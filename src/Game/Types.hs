@@ -8,7 +8,8 @@ type Row = Int    -- 0..(boardSize-1)
 type Col = Int
 type Pos = (Row, Col)
 
-data Cell = Empty | ShipPart Int /* ship id */ | Hit | Miss
+data Cell = Empty | ShipPart Int -- ship id
+  | Hit | Miss
   deriving (Eq, Show, Generic)
 
 instance ToJSON Cell

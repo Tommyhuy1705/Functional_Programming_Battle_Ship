@@ -15,7 +15,7 @@ initPlayer :: Int -> String -> Player
 initPlayer id name = Player {
     playerId = id,
     playerName = name,
-    playerBoard = initBoard 10 10,
+    playerBoard = initBoard,
     ships = [],
     isReady = False
 }

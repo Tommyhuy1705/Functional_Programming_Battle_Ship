@@ -4,8 +4,9 @@ module Network.Client (runClient) where
 import qualified Network.Socket as NS
 import qualified Network.Socket.ByteString as NSB
 import Control.Concurrent
-import Control.Monad (forever)
+import Control.Monad (forever, unless)
 import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.ByteString as BS
 import Network.Message
 import Data.Aeson (encode, decode)
 
@@ -18,7 +19,7 @@ runClient host port = NS.withSocketsDo $ do
   -- spawn a receiver thread
   _ <- forkIO $ forever $ do
     bs <- NSB.recv sock 4096
-    unless (bs == "") $ handleServerMsg bs
+    unless (BS.null bs) $ handleServerMsg bs
   -- main loop: read user input and send messages
   clientLoop sock
 
@@ -34,7 +35,7 @@ clientLoop sock = do
     "quit":_ -> putStrLn "Bye"
     _ -> putStrLn "Unknown" >> clientLoop sock
 
-handleServerMsg :: NS.ByteString -> IO ()
+handleServerMsg :: BS.ByteString -> IO ()
 handleServerMsg bs = case decode (BL.fromStrict bs) :: Maybe ServerMsg of
   Nothing -> putStrLn ("Invalid server msg: " ++ show bs)
   Just sm -> print sm

@@ -9,6 +9,7 @@ where
 import Game.Types
 import Game.Board
 import Game.Ship
+import Data.List (find)
 
 data ShotResult = ShotMiss | ShotHit | ShotSunk Int -- ship id
   deriving (Eq, Show)

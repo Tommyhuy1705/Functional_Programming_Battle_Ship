@@ -1,0 +1,40 @@
+? C:\Users\LEGION\AppData\Local\Programs\stack\x86_64-windows\ghc-9.10.3\lib\x86_64-windows-ghc-9.10.3\rts-1.0.2\include\ghcversion.h
+: hash: 7038bb968ecc358729edd5d1e72a638409aaf5ea6ab13ce6ec7f253daa3b6529
+D:\Study\Project\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\autogen\Paths_battleship.hs:
+  hash: c05c5eef5f63afb30e54ab8197e0b8ed485317cb3e60ac825db03b2d55e0d11b
+D:\Study\Project\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\autogen\cabal_macros.h:
+  hash: cfced2f9efe8de26ce5207ba56a017141906efe5174412376e2f30d90f051abc
+D:\Study\Project\Functional_Programming_Battle_Ship\LICENSE:
+  hash: f0a845a6ab2ad9db21e4283401e11be8bca48c8816169a1119c93820ef4556da
+D:\Study\Project\Functional_Programming_Battle_Ship\README.md:
+  hash: 497b44919f9140bad126639a482e6736d0452e84dd2475eb850e9f488f66eef3
+D:\Study\Project\Functional_Programming_Battle_Ship\battleship.cabal:
+  hash: 28229c001d82a870410afbedc5c1efa3bf8768630ba884fe84366ddf2a98de39
+D:\Study\Project\Functional_Programming_Battle_Ship\package.yaml:
+  hash: 0c6bd5b5e97ca796af933430a7ddf82fa883e610df2362f1f9518a450c1da32d
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Config.hs:
+  hash: 756d0bb1167eabd5e02b107ae421a7d054f966f64f019373df397e9a6c37a22e
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Board.hs:
+  hash: 7256359b57a7137db4e4a4a4e81be75567590d6fe861859965469874b9cebf9f
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Logic.hs:
+  hash: a2876416c7fb5e583ad7b17ab1bc5ae89990adbae1c41a92dafa3360dfe2f5c4
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Player.hs:
+  hash: 755b6a93da0111da007701886c8735657a3e4954db34717e68fe0302e498f624
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Ship.hs:
+  hash: b0d1cf40d9509f4c796169f2eaa633f4c61a8100a22d46204147409f25bc652b
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\State.hs:
+  hash: 1254982f20d04fbcbb555e61afe68f76f6a3914bff9e01710a179e7465794119
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Types.hs:
+  hash: a05526db9679f5ad7df9b65c1b0ded8260ccf66be012024503ea3b22f2b43054
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Client.hs:
+  hash: 8ae08433d1f1aa881de0f97f33feaa2531da8ace4a39125b2803c1c1e4d1b89f
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Message.hs:
+  hash: c4e82d0594e483014a4d76d6f7ddfb862d7722c9aada186416c3e790db3c38a1
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Server.hs:
+  hash: 1986e52ccbddb7a7e87630a1764e9935ec460814a6b032971578ca535d0ea971
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Concurrency.hs:
+  hash: 85afb31df4bda2d516a735ad9c686ddf0100d530056872c695fcca7f6cf1bba8
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Parser.hs:
+  hash: 2fc035c21f3a058441d929fc962bcb6951e5c53186da059ee84460f0728bf919
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Serializer.hs:
+  hash: adb6605dd490eac8c24f7f45676911732c2161e3d06fe6df0ac75533485fe365
