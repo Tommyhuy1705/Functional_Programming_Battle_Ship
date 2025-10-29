@@ -21,9 +21,9 @@ D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Logic.hs:
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Player.hs:
   hash: 755b6a93da0111da007701886c8735657a3e4954db34717e68fe0302e498f624
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Ship.hs:
-  hash: b0d1cf40d9509f4c796169f2eaa633f4c61a8100a22d46204147409f25bc652b
+  hash: e82052392407b008691c9b3239b7f3e77333505375809601a847eead5e3e58f3
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\State.hs:
-  hash: 1254982f20d04fbcbb555e61afe68f76f6a3914bff9e01710a179e7465794119
+  hash: db181f88f5e256e06ac26b194b85962bf0c3776aad4e87602216f5aa26352f6e
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Types.hs:
   hash: a05526db9679f5ad7df9b65c1b0ded8260ccf66be012024503ea3b22f2b43054
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Client.hs:
@@ -31,10 +31,10 @@ D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Client.hs:
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Message.hs:
   hash: c4e82d0594e483014a4d76d6f7ddfb862d7722c9aada186416c3e790db3c38a1
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Server.hs:
-  hash: 1986e52ccbddb7a7e87630a1764e9935ec460814a6b032971578ca535d0ea971
+  hash: 081e6d594796c1faa99a0b00bcb81078d963ebc1e3f19ba380750b544c96ceb6
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Concurrency.hs:
-  hash: 85afb31df4bda2d516a735ad9c686ddf0100d530056872c695fcca7f6cf1bba8
+  hash: e9c5cc981298dafa9685333bc5e2e812265a4b53ed11dcaf96064628db4b63b5
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Parser.hs:
   hash: 2fc035c21f3a058441d929fc962bcb6951e5c53186da059ee84460f0728bf919
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Serializer.hs:
-  hash: adb6605dd490eac8c24f7f45676911732c2161e3d06fe6df0ac75533485fe365
+  hash: 114a9aff3ba03971bbdbd220cebeb277a684e6bef31a6d57f0adbcdabcff9b86

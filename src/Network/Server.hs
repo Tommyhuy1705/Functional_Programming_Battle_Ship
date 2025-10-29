@@ -13,6 +13,7 @@ import Network.Message
 import Game.State
 import Game.Types
 import Game.Logic (ShotResult(..))
+import Data.List (find)
 
 data Client = Client 
     { clientSocket :: NS.Socket
@@ -74,8 +75,19 @@ clientHandler client serverState = do
         gs <- takeMVar mstate
         let (gs', res) = applyFire gs pid pos
         putMVar mstate gs'
+        -- send result to firing client
         sendServer sock (SMResult { res = show res, resTarget = pos })
-        -- notify opponent (TODO: use clients list to send)
+        -- notify opponent: find other client and send them the result and updated board
+        clientsList <- readMVar (clients serverState)
+        let mOpp = find (\c -> clientId c /= pid) clientsList
+        case mOpp of
+          Nothing -> return ()
+          Just opp -> do
+            -- send simple result notification
+            sendServer (clientSocket opp) (SMResult { res = show res, resTarget = pos })
+            -- also send updated board for defender
+            let defBoard = if pid == 1 then getPlayerBoard gs' 2 else getPlayerBoard gs' 1
+            sendServer (clientSocket opp) (SMUpdateBoard { board = defBoard })
       _ -> putStrLn $ "Unhandled client msg: " ++ show cm
 
   loop

@@ -1,15 +1,21 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Game.Ship
   ( Ship(..), placeShipPositions, occupies )
 where
 
 import Game.Types
 import Game.Board (inBounds)
+import GHC.Generics (Generic)
+import Data.Aeson (ToJSON, FromJSON)
 
 data Ship = Ship
   { shipId :: Int
   , shipType :: ShipType
   , positions :: [Pos]
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
+
+instance ToJSON Ship
+instance FromJSON Ship
 
 placeShipPositions :: Pos -> Bool -> ShipType -> Maybe [Pos]
 placeShipPositions (r,c) horizontal st =

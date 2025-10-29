@@ -1,7 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Game.State
   ( GameState(..)
   , initState
   , applyFire
+  , getPlayerBoard
   )
 where
 
@@ -10,11 +12,16 @@ import Game.Board
 import Game.Ship
 import Game.Logic
 import Network.Message (GamePhase(..))
+import GHC.Generics (Generic)
+import Data.Aeson (ToJSON, FromJSON)
 
 data PlayerState = PlayerState
   { board :: Board
   , ships :: [Ship]
-  } deriving (Show)
+  } deriving (Show, Generic)
+
+instance ToJSON PlayerState
+instance FromJSON PlayerState
 
 data GameState = GameState
   { p1 :: PlayerState
@@ -22,7 +29,10 @@ data GameState = GameState
   , turn :: Int -- 1 or 2
   , phase :: GamePhase
   , winner :: Maybe Int
-  } deriving (Show)
+  } deriving (Show, Generic)
+
+instance ToJSON GameState
+instance FromJSON GameState
 
 initState :: GameState
 initState = GameState 
@@ -32,6 +42,12 @@ initState = GameState
   , phase = WaitingPlayers
   , winner = Nothing
   }
+
+-- | Return the board for the given player id (1 or 2)
+getPlayerBoard :: GameState -> Int -> Board
+getPlayerBoard gs 1 = board (p1 gs)
+getPlayerBoard gs 2 = board (p2 gs)
+getPlayerBoard _ _ = error "getPlayerBoard: invalid player id"
 
 -- applyFire: player A fires at player B
 applyFire :: GameState -> Int -> Pos -> (GameState, ShotResult)

@@ -3,9 +3,10 @@ module Utils.Serializer where
 import Data.Aeson
 import Network.Message
 import Game.State
+import qualified Data.ByteString.Lazy.Char8 as BL
 
 serializeGameState :: GameState -> String
-serializeGameState = undefined  -- TODO: Implement game state serialization
+serializeGameState gs = BL.unpack (encode gs)
 
 deserializeGameState :: String -> Maybe GameState
-deserializeGameState = undefined  -- TODO: Implement game state deserialization
+deserializeGameState s = decode (BL.pack s)
