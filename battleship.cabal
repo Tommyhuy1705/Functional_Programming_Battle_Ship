@@ -36,6 +36,7 @@ library
       Network.Message
       Network.Server
       Utils.Concurrency
+      Utils.Parallel
       Utils.Parser
       Utils.Serializer
   other-modules:
