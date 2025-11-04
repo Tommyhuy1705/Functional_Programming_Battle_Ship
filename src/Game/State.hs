@@ -32,7 +32,7 @@ instance FromJSON PlayerState
 data GameState = GameState
   { p1 :: PlayerState
   , p2 :: PlayerState
-  , turn :: Int -- 1 or 2
+  , turn :: Int
   , phase :: GamePhase
   , winner :: Maybe Int
   } deriving (Show, Generic)
@@ -56,7 +56,7 @@ getPlayerBoard gs 2 = board (p2 gs)
 getPlayerBoard _ _ = error "getPlayerBoard: invalid player id"
 
 
--- | Try to place a Ship for a player. Returns Nothing if placement invalid.
+-- Place ship for player
 placeShipForPlayer :: GameState -> Int -> Ship -> Maybe GameState
 placeShipForPlayer gs pid ship
   | pid == 1 =
@@ -77,17 +77,17 @@ placeShipForPlayer gs pid ship
              Just b' -> Just $ gs { p2 = ps { board = b', ships = ships ps ++ [ship] } }
   | otherwise = Nothing
 
--- | Mark player ready. Returns updated GameState
+-- Mark player ready
 setPlayerReady :: GameState -> Int -> GameState
 setPlayerReady gs 1 = gs { p1 = (p1 gs) { ready = True } }
 setPlayerReady gs 2 = gs { p2 = (p2 gs) { ready = True } }
 setPlayerReady gs _ = gs
 
--- | Set the winner and transition to GameOver
+-- Set winner
 setWinner :: GameState -> Int -> GameState
 setWinner gs wid = gs { winner = Just wid, phase = GameOver }
 
--- | Check if player has placed all required ship types
+-- Check player has placed all ships
 requiredShipTypes :: [ShipType]
 requiredShipTypes = [Carrier, Battleship, Cruiser, Submarine, Destroyer]
 
@@ -97,7 +97,7 @@ hasPlacedAllShips gs pid =
       typesPlaced = map shipType st
   in all (`elem` typesPlaced) requiredShipTypes
 
--- applyFire: player A fires at player B
+-- PLayer A fires at Player B
 applyFire :: GameState -> Int -> Pos -> (GameState, ShotResult)
 applyFire gs attacker pos
   | attacker == 1 =

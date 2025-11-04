@@ -85,7 +85,7 @@ clientHandler client serverState = do
         _ <- withGameLock mstate $ \gs -> do
           let gs' = setPlayerReady gs pid
           return (gs', ())
-        -- check if both ready and have placed all required ships
+        -- check both ready and have placed all required ships
         gsAfter <- readMVar mstate
         let bothReady = ready (p1 gsAfter) && ready (p2 gsAfter)
             bothPlaced = hasPlacedAllShips gsAfter 1 && hasPlacedAllShips gsAfter 2

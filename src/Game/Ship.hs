@@ -29,7 +29,7 @@ placeShipPositions (r,c) horizontal st =
 occupies :: Ship -> Pos -> Bool
 occupies s p = p `elem` positions s
 
--- | Parse a ship type name (case-insensitive-ish) into ShipType
+-- Parse a ship type name into ShipType
 parseShipType :: String -> Maybe ShipType
 parseShipType s = case map toLower s of
   "carrier"    -> Just Carrier

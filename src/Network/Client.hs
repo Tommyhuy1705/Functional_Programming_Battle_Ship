@@ -24,7 +24,7 @@ runClient host port = NS.withSocketsDo $ do
       -- incoming data may contain multiple newline-delimited JSON messages
       let parts = BS.split 10 bs -- 10 == '\n'
       mapM_ handleServerMsg parts
-  -- main loop: read user input and send messages
+  -- Main loop -> read user input and send to server
   clientLoop sock
 
 clientLoop :: NS.Socket -> IO ()
