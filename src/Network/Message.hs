@@ -20,7 +20,7 @@ instance ToJSON GamePhase
 instance FromJSON GamePhase
 
 data ClientMsg
-  = CMReady                    -- ready to start / placed ships
+  = CMReady                    -- ready to start
   | CMPlaceShip { psShipId :: Int, psType :: String, psPos :: Pos, psHoriz :: Bool }
   | CMFire { fireTarget :: Pos }
   | CMChat { clientChatText :: String }

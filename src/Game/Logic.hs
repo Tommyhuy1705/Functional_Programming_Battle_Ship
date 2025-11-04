@@ -14,7 +14,7 @@ import Data.List (find)
 data ShotResult = ShotMiss | ShotHit | ShotSunk Int -- ship id
   deriving (Eq, Show)
 
--- Place ship: returns updated board or Nothing if conflict/out of bounds
+-- Place ship on board
 placeShipOnBoard :: Board -> Ship -> Maybe Board
 placeShipOnBoard b ship =
   if any conflict (positions ship) then Nothing
@@ -24,11 +24,11 @@ placeShipOnBoard b ship =
                    Just Empty -> False
                    _ -> True
 
--- fireAt: given board and pos -> new board + result
+-- fireAt: returns updated board and result of the shot
 fireAt :: Board -> [Ship] -> Pos -> (Board, ShotResult)
 fireAt b ships pos =
   case getCell b pos of
-    Nothing -> (b, ShotMiss) -- out of bounds => treat as miss
+    Nothing -> (b, ShotMiss) -- out of the bounds
     Just Empty -> (setCell b pos Miss, ShotMiss)
     Just Miss  -> (b, ShotMiss)
     Just Hit   -> (b, ShotHit)
@@ -42,7 +42,7 @@ fireAt b ships pos =
              then (b', ShotSunk sid)
              else (b', ShotHit)
 
--- allSunk: needs list of ships and board
+-- allSunk: list of ships and board
 allSunk :: Board -> [Ship] -> Bool
 allSunk bd ships = all (shipSunk bd) ships
   where

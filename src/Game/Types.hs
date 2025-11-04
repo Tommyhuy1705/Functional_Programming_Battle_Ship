@@ -4,11 +4,11 @@ module Game.Types where
 import GHC.Generics (Generic)
 import Data.Aeson (ToJSON, FromJSON)
 
-type Row = Int    -- 0..(boardSize-1)
+type Row = Int
 type Col = Int
 type Pos = (Row, Col)
 
-data Cell = Empty | ShipPart Int -- ship id
+data Cell = Empty | ShipPart Int
   | Hit | Miss
   deriving (Eq, Show, Generic)
 
