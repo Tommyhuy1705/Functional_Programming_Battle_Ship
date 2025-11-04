@@ -4,8 +4,10 @@ module Network.Server (runServer) where
 import qualified Network.Socket as NS
 import qualified Network.Socket.ByteString as NSB
 import Control.Concurrent
-import Control.Exception (bracket, finally)
+import Control.Exception (bracket, finally, try, SomeException)
 import Control.Monad (forever, when, unless)
+import Utils.Concurrency (GameLock, createGameLock, withGameLock)
+import Utils.Parallel (runParallel_)
 import Data.Aeson (encode, decode)
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString as BS
@@ -35,7 +37,7 @@ runServer port = do
   NS.bind sock (NS.addrAddress serveraddr)
   NS.listen sock 2
   putStrLn $ "Server listening on port " ++ port
-  mstate <- newMVar initState
+  mstate <- createGameLock initState
   mclients <- newMVar []
   let serverState = ServerState mstate mclients
   forever $ do
@@ -63,40 +65,53 @@ clientHandler client serverState = do
   let
     loop = do
       msgbs <- recvLine sock
-      case decode (BL.fromStrict msgbs) :: Maybe ClientMsg of
-        Nothing -> putStrLn "Invalid message"
-        Just cm -> handleClientMsg cm
-      loop
+      -- client closed socket => recv returns empty; end loop to allow cleanup
+      if BS.null msgbs
+        then return ()
+        else do
+          -- a single recv may contain multiple newline-delimited JSON messages
+          let parts = filter (not . BS.null) $ BS.split 10 msgbs -- 10 == '\n'
+          mapM_ (\p -> case decode (BL.fromStrict p) :: Maybe ClientMsg of
+                          Nothing -> putStrLn $ "Invalid message: " ++ show p
+                          Just cm -> handleClientMsg cm)
+                parts
+          loop
 
     handleClientMsg :: ClientMsg -> IO ()
     handleClientMsg cm = case cm of
       CMFire { fireTarget = pos } -> do
-        -- apply fire to state
-        gs <- takeMVar mstate
-        let (gs', res) = applyFire gs pid pos
-        putMVar mstate gs'
-        -- send result to firing client
-        sendServer sock (SMResult { res = show res, resTarget = pos })
-        -- notify opponent: find other client and send them the result and updated board
-        clientsList <- readMVar (clients serverState)
-        let mOpp = find (\c -> clientId c /= pid) clientsList
-        case mOpp of
-          Nothing -> return ()
-          Just opp -> do
-            -- send simple result notification
-            sendServer (clientSocket opp) (SMResult { res = show res, resTarget = pos })
-            -- also send updated board for defender
-            let defBoard = if pid == 1 then getPlayerBoard gs' 2 else getPlayerBoard gs' 1
-            sendServer (clientSocket opp) (SMUpdateBoard { board = defBoard })
+        -- apply fire to state using the game lock helper
+          res <- withGameLock mstate $ \gs ->
+            let (gs', res') = applyFire gs pid pos
+            in return (gs', res')
+          -- send result to firing client
+          sendServer sock (SMResult { res = show res, resTarget = pos })
+          -- notify opponent: find other client and send them the result and updated board
+          clientsList <- readMVar (clients serverState)
+          let mOpp = find (\c -> clientId c /= pid) clientsList
+          case mOpp of
+            Nothing -> return ()
+            Just opp -> do
+              -- read updated game state to compute defender board
+              gs' <- readMVar mstate
+              let defBoard = if pid == 1 then getPlayerBoard gs' 2 else getPlayerBoard gs' 1
+              -- send notifications in parallel
+              runParallel_ [ sendServer (clientSocket opp) (SMResult { res = show res, resTarget = pos })
+                           , sendServer (clientSocket opp) (SMUpdateBoard { board = defBoard })
+                           ]
       _ -> putStrLn $ "Unhandled client msg: " ++ show cm
 
   loop
 
 sendServer :: NS.Socket -> ServerMsg -> IO ()
-sendServer sock sm = NSB.sendAll sock (BL.toStrict (encode sm))
+sendServer sock sm = NSB.sendAll sock (BL.toStrict (encode sm <> BL.pack "\n"))
 
 recvLine :: NS.Socket -> IO BS.ByteString
-recvLine sock = NSB.recv sock 4096
+recvLine sock = do
+  eres <- try (NSB.recv sock 4096) :: IO (Either SomeException BS.ByteString)
+  case eres of
+    Left _ -> return BS.empty
+    Right bs -> return bs
 
 handleDisconnect :: Client -> ServerState -> IO ()
 handleDisconnect client s = do

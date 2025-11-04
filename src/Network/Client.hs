@@ -19,7 +19,10 @@ runClient host port = NS.withSocketsDo $ do
   -- spawn a receiver thread
   _ <- forkIO $ forever $ do
     bs <- NSB.recv sock 4096
-    unless (BS.null bs) $ handleServerMsg bs
+    unless (BS.null bs) $ do
+      -- incoming data may contain multiple newline-delimited JSON messages
+      let parts = BS.split 10 bs -- 10 == '\n'
+      mapM_ handleServerMsg parts
   -- main loop: read user input and send messages
   clientLoop sock
 
@@ -31,11 +34,13 @@ clientLoop sock = do
     ["fire", r, c] ->
       let pos = (read r, read c)
           cm = CMFire pos
-      in NSB.sendAll sock (BL.toStrict (encode cm)) >> clientLoop sock
+      in NSB.sendAll sock (BL.toStrict (encode cm <> BL.pack "\n")) >> clientLoop sock
     "quit":_ -> putStrLn "Bye"
     _ -> putStrLn "Unknown" >> clientLoop sock
 
 handleServerMsg :: BS.ByteString -> IO ()
-handleServerMsg bs = case decode (BL.fromStrict bs) :: Maybe ServerMsg of
-  Nothing -> putStrLn ("Invalid server msg: " ++ show bs)
-  Just sm -> print sm
+handleServerMsg bs
+  | BS.null bs = return ()
+  | otherwise = case decode (BL.fromStrict bs) :: Maybe ServerMsg of
+      Nothing -> putStrLn ("Invalid server msg: " ++ show bs)
+      Just sm -> print sm
