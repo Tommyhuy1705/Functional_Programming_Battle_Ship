@@ -9,6 +9,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString as BS
 import Network.Message
 import Data.Aeson (encode, decode)
+import Data.Char (toLower)
 
 runClient :: String -> String -> IO ()
 runClient host port = NS.withSocketsDo $ do
@@ -28,13 +29,27 @@ runClient host port = NS.withSocketsDo $ do
 
 clientLoop :: NS.Socket -> IO ()
 clientLoop sock = do
-  putStrLn "Enter command (fire r c):"
+  putStrLn "Enter command (fire r c) or (place id type r c orient) or (ready):"
   line <- getLine
   case words line of
-    ["fire", r, c] ->
+    ["fire", r, c] -> do
       let pos = (read r, read c)
           cm = CMFire pos
-      in NSB.sendAll sock (BL.toStrict (encode cm <> BL.pack "\n")) >> clientLoop sock
+      NSB.sendAll sock (BL.toStrict (encode cm <> BL.pack "\n"))
+      clientLoop sock
+    ["place", sid, stype, r, c, orient] -> do
+      let sid' = read sid
+          pos = (read r, read c)
+          horiz = case map toLower orient of
+                    "h" -> True
+                    "horizontal" -> True
+                    _ -> False
+          cm = CMPlaceShip sid' stype pos horiz
+      NSB.sendAll sock (BL.toStrict (encode cm <> BL.pack "\n"))
+      clientLoop sock
+    ["ready"] -> do
+      NSB.sendAll sock (BL.toStrict (encode CMReady <> BL.pack "\n"))
+      clientLoop sock
     "quit":_ -> putStrLn "Bye"
     _ -> putStrLn "Unknown" >> clientLoop sock
 

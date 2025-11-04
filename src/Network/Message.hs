@@ -32,7 +32,7 @@ instance FromJSON ClientMsg
 
 data ServerMsg
   = SMWelcome { playerId :: Int, playerName :: String }
-  | SMGamePhase { phase :: GamePhase }
+  | SMGamePhase { smPhase :: GamePhase }
   | SMYourTurn
   | SMResult { res :: String, resTarget :: Pos } -- "Hit","Miss","Sunk"
   | SMUpdateBoard { board :: Board }
