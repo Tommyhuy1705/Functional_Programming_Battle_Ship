@@ -1,12 +1,13 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Game.Ship
-  ( Ship(..), placeShipPositions, occupies )
+  ( Ship(..), placeShipPositions, occupies, parseShipType )
 where
 
 import Game.Types
 import Game.Board (inBounds)
 import GHC.Generics (Generic)
 import Data.Aeson (ToJSON, FromJSON)
+import Data.Char (toLower)
 
 data Ship = Ship
   { shipId :: Int
@@ -27,3 +28,13 @@ placeShipPositions (r,c) horizontal st =
 
 occupies :: Ship -> Pos -> Bool
 occupies s p = p `elem` positions s
+
+-- | Parse a ship type name (case-insensitive-ish) into ShipType
+parseShipType :: String -> Maybe ShipType
+parseShipType s = case map toLower s of
+  "carrier"    -> Just Carrier
+  "battleship" -> Just Battleship
+  "cruiser"    -> Just Cruiser
+  "submarine"  -> Just Submarine
+  "destroyer"  -> Just Destroyer
+  _              -> Nothing

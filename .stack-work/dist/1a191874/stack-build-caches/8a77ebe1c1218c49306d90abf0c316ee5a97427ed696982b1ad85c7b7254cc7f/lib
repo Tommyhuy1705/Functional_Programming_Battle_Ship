@@ -7,9 +7,9 @@ D:\Study\Project\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\bu
 D:\Study\Project\Functional_Programming_Battle_Ship\LICENSE:
   hash: f0a845a6ab2ad9db21e4283401e11be8bca48c8816169a1119c93820ef4556da
 D:\Study\Project\Functional_Programming_Battle_Ship\README.md:
-  hash: 497b44919f9140bad126639a482e6736d0452e84dd2475eb850e9f488f66eef3
+  hash: 09a6dc938f91ef4c18f1fef45fc2c64f572aa737caac9608b91859684946502b
 D:\Study\Project\Functional_Programming_Battle_Ship\battleship.cabal:
-  hash: 28229c001d82a870410afbedc5c1efa3bf8768630ba884fe84366ddf2a98de39
+  hash: f074c94eaac0960c8e780c6239ab9298a32053b11e8a2e74393690cdc380cdef
 D:\Study\Project\Functional_Programming_Battle_Ship\package.yaml:
   hash: 0c6bd5b5e97ca796af933430a7ddf82fa883e610df2362f1f9518a450c1da32d
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Config.hs:
@@ -21,19 +21,21 @@ D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Logic.hs:
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Player.hs:
   hash: 755b6a93da0111da007701886c8735657a3e4954db34717e68fe0302e498f624
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Ship.hs:
-  hash: e82052392407b008691c9b3239b7f3e77333505375809601a847eead5e3e58f3
+  hash: ffab02021fce8be32b84bdeebf158a5888d3db3f70e18230689a1c76ebf64737
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\State.hs:
-  hash: db181f88f5e256e06ac26b194b85962bf0c3776aad4e87602216f5aa26352f6e
+  hash: 9b12816838aeaa029f8b6873376be46af539b7193503da186019b7f3ce965039
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Game\Types.hs:
   hash: a05526db9679f5ad7df9b65c1b0ded8260ccf66be012024503ea3b22f2b43054
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Client.hs:
-  hash: 8ae08433d1f1aa881de0f97f33feaa2531da8ace4a39125b2803c1c1e4d1b89f
+  hash: 74569258adba9a5607f9459b40caf700999ae0f9cef70178f3b0d0bd80f570f6
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Message.hs:
-  hash: c4e82d0594e483014a4d76d6f7ddfb862d7722c9aada186416c3e790db3c38a1
+  hash: 073758820bc98e7d18a148913207261d3e724fd01410a7894c45aa1b1d0793ec
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Network\Server.hs:
-  hash: 081e6d594796c1faa99a0b00bcb81078d963ebc1e3f19ba380750b544c96ceb6
+  hash: 5a7f7909f13a83ecae298411a2c3c3f39c3266e32c11aa447da2dbed9c5ce801
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Concurrency.hs:
   hash: e9c5cc981298dafa9685333bc5e2e812265a4b53ed11dcaf96064628db4b63b5
+D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Parallel.hs:
+  hash: 2a84aeaf90c9a259ab2daaf2346bfea1223a27651a9c2f148c3852e81f1cd868
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Parser.hs:
   hash: 2fc035c21f3a058441d929fc962bcb6951e5c53186da059ee84460f0728bf919
 D:\Study\Project\Functional_Programming_Battle_Ship\src\Utils\Serializer.hs:
