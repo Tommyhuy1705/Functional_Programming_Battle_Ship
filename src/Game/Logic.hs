@@ -17,12 +17,15 @@ data ShotResult = ShotMiss | ShotHit | ShotSunk Int -- ship id
 -- Place ship on board
 placeShipOnBoard :: Board -> Ship -> Maybe Board
 placeShipOnBoard b ship =
-  if any conflict (positions ship) then Nothing
-  else Just $ foldl (\bd pos -> setCell bd pos (ShipPart (shipId ship))) b (positions ship)
+  if any conflict (positions ship)
+    then Nothing
+    else Just $ foldl (\bd pos -> setCell bd pos (ShipPart (shipId ship))) b (positions ship)
   where
     conflict p = case getCell b p of
                    Just Empty -> False
-                   _ -> True
+                   Nothing    -> True   -- Vượt biên
+                   Just _     -> True   -- Đè tàu hoặc đã bắn trúng
+
 
 -- fireAt: returns updated board and result of the shot
 fireAt :: Board -> [Ship] -> Pos -> (Board, ShotResult)

@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Network.Client (runClient) where
 
+import Data.Char (toLower, toUpper)
 import qualified Network.Socket as NS
 import qualified Network.Socket.ByteString as NSB
 import Control.Concurrent
@@ -58,4 +59,14 @@ handleServerMsg bs
   | BS.null bs = return ()
   | otherwise = case decode (BL.fromStrict bs) :: Maybe ServerMsg of
       Nothing -> putStrLn ("Invalid server msg: " ++ show bs)
-      Just sm -> print sm
+      Just sm -> case sm of
+        SMWelcome pid name -> putStrLn $ "Welcome, " ++ name ++ "! You are player " ++ show pid
+        SMGamePhase ph -> putStrLn $ "Game phase: " ++ show ph
+        SMYourTurn -> putStrLn " It's your turn! Type: fire r c"
+        SMUpdateBoard _ -> putStrLn "[Board updated]"
+        SMResult { res = r, resTarget = (x, y), resOwner = owner } ->
+          putStrLn $ " Fired at (" ++ show x ++ "," ++ show y ++ "): " ++ map toUpper r ++ " (board owner: " ++ show owner ++ ")"
+        SMGameOver winner ->
+          putStrLn $ " Game Over! Winner: Player " ++ show winner
+        SMError { errorMsg = e } -> putStrLn $ " Error: " ++ e
+        _ -> print sm

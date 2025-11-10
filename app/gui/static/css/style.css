@@ -1,0 +1,207 @@
+/* ====== RESET & BASE ====== */
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(120deg, #1e3c72, #2a5298);
+    color: #fff;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+/* ====== LOGIN SCREEN ====== */
+.login-container {
+    margin-top: 100px;
+}
+
+.login-container h1 {
+    font-size: 2.5em;
+    margin-bottom: 30px;
+    color: #f1f1f1;
+}
+
+.login-form {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.login-form input {
+    padding: 10px 15px;
+    border-radius: 5px;
+    border: none;
+    width: 200px;
+}
+
+.login-form button {
+    padding: 10px 20px;
+    background: #ffb703;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.login-form button:hover {
+    background: #fb8500;
+}
+
+.login-status {
+    margin-top: 15px;
+    font-style: italic;
+    color: #f0f0f0;
+}
+
+/* ====== GAME CONTAINER ====== */
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 50px;
+}
+
+.boards {
+    display: flex;
+    justify-content: center;
+    gap: 50px;
+    margin-bottom: 30px;
+}
+
+/* ====== BOARD ====== */
+.board-container {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+}
+
+.board-container h2 {
+    margin-bottom: 10px;
+}
+
+.game-board {
+    border-collapse: collapse;
+    margin: 0 auto;
+}
+
+.cell {
+    width: 35px;
+    height: 35px;
+    border: 1px solid #ccc;
+    background-color: #0f3460;
+    transition: background-color 0.2s;
+}
+
+.cell:hover {
+    background-color: #16213e;
+    cursor: pointer;
+}
+
+/* ====== CELL STATES ====== */
+.cell.ship {
+    background-color: #0077b6;
+}
+
+.cell.hit {
+    background-color: #ef233c;
+}
+
+.cell.miss {
+    background-color: #8d99ae;
+}
+
+/* ====== CONTROLS ====== */
+.control-panel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.control-panel button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    background-color: #06d6a0;
+    color: #000;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.control-panel button:hover {
+    background-color: #04b383;
+}
+
+.status-msg {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #ffb703;
+}
+
+/* ====== VICTORY SCREEN ====== */
+.victory-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    z-index: 1000;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.victory-container h1 {
+    color: #ffd700;
+    margin-bottom: 30px;
+    font-size: 2em;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.victory-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.victory-buttons button {
+    padding: 15px 30px;
+    font-size: 1.2em;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.victory-buttons button:first-child {
+    background-color: #06d6a0;
+    color: black;
+}
+
+.victory-buttons button:last-child {
+    background-color: #ef233c;
+    color: white;
+}
+
+.victory-buttons button:hover {
+    transform: scale(1.05);
+}
+
+.cell.target-hit {
+  background-color: red;
+}
+
+.cell.target-miss {
+  background-color: lightblue;
+}
+.cell.target-fired {
+  background-color: yellow;
+}
+.cell.target-hit {
+  background-color: red;
+}
+.cell.target-miss {
+  background-color: lightblue;
+}

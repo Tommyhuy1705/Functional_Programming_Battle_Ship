@@ -1,16 +1,17 @@
 {-# LANGUAGE DeriveGeneric #-}
 module Game.State
-  ( PlayerState(..)
-  , GameState(..)
+  ( GameState(..)
+  , PlayerState(..)
   , initState
   , applyFire
-  , placeShipForPlayer
   , getPlayerBoard
+  , placeShipsForPlayer
+  , placeShipForPlayer
   , setPlayerReady
   , hasPlacedAllShips
   , setWinner
-  )
-where
+  , GamePhase(..)
+  ) where
 
 import Game.Types
 import Game.Board
@@ -19,7 +20,9 @@ import Game.Logic
 import Network.Message (GamePhase(..))
 import GHC.Generics (Generic)
 import Data.Aeson (ToJSON, FromJSON)
+import Debug.Trace (trace)
 
+-- | Trạng thái của một người chơi
 data PlayerState = PlayerState
   { board :: Board
   , ships :: [Ship]
@@ -29,10 +32,11 @@ data PlayerState = PlayerState
 instance ToJSON PlayerState
 instance FromJSON PlayerState
 
+-- | Trạng thái toàn cục của trò chơi
 data GameState = GameState
   { p1 :: PlayerState
   , p2 :: PlayerState
-  , turn :: Int
+  , turn :: Int -- 1 hoặc 2
   , phase :: GamePhase
   , winner :: Maybe Int
   } deriving (Show, Generic)
@@ -40,8 +44,9 @@ data GameState = GameState
 instance ToJSON GameState
 instance FromJSON GameState
 
+-- | Khởi tạo game mới
 initState :: GameState
-initState = GameState 
+initState = GameState
   { p1 = PlayerState initBoard [] False
   , p2 = PlayerState initBoard [] False
   , turn = 1
@@ -49,55 +54,13 @@ initState = GameState
   , winner = Nothing
   }
 
--- | Return the board for the given player id (1 or 2)
+-- | Lấy board của người chơi (1 hoặc 2)
 getPlayerBoard :: GameState -> Int -> Board
 getPlayerBoard gs 1 = board (p1 gs)
 getPlayerBoard gs 2 = board (p2 gs)
 getPlayerBoard _ _ = error "getPlayerBoard: invalid player id"
 
-
--- Place ship for player
-placeShipForPlayer :: GameState -> Int -> Ship -> Maybe GameState
-placeShipForPlayer gs pid ship
-  | pid == 1 =
-      let ps = p1 gs
-          existingTypes = map shipType (ships ps)
-      in if shipType ship `elem` existingTypes
-           then Nothing
-           else case placeShipOnBoard (board ps) ship of
-             Nothing -> Nothing
-             Just b' -> Just $ gs { p1 = ps { board = b', ships = ships ps ++ [ship] } }
-  | pid == 2 =
-      let ps = p2 gs
-          existingTypes = map shipType (ships ps)
-      in if shipType ship `elem` existingTypes
-           then Nothing
-           else case placeShipOnBoard (board ps) ship of
-             Nothing -> Nothing
-             Just b' -> Just $ gs { p2 = ps { board = b', ships = ships ps ++ [ship] } }
-  | otherwise = Nothing
-
--- Mark player ready
-setPlayerReady :: GameState -> Int -> GameState
-setPlayerReady gs 1 = gs { p1 = (p1 gs) { ready = True } }
-setPlayerReady gs 2 = gs { p2 = (p2 gs) { ready = True } }
-setPlayerReady gs _ = gs
-
--- Set winner
-setWinner :: GameState -> Int -> GameState
-setWinner gs wid = gs { winner = Just wid, phase = GameOver }
-
--- Check player has placed all ships
-requiredShipTypes :: [ShipType]
-requiredShipTypes = [Carrier, Battleship, Cruiser, Submarine, Destroyer]
-
-hasPlacedAllShips :: GameState -> Int -> Bool
-hasPlacedAllShips gs pid =
-  let st = if pid == 1 then ships (p1 gs) else ships (p2 gs)
-      typesPlaced = map shipType st
-  in all (`elem` typesPlaced) requiredShipTypes
-
--- PLayer A fires at Player B
+-- | Người chơi bắn vào đối thủ
 applyFire :: GameState -> Int -> Pos -> (GameState, ShotResult)
 applyFire gs attacker pos
   | attacker == 1 =
@@ -112,3 +75,55 @@ applyFire gs attacker pos
           def' = defender { board = b' }
           gs' = gs { p1 = def', turn = if res == ShotMiss then 1 else 2 }
       in (gs', res)
+
+-- | Đặt danh sách tàu cho người chơi (dùng khi setup tự động)
+placeShipsForPlayer :: GameState -> Int -> [Ship] -> Maybe GameState
+placeShipsForPlayer gs player newShips =
+  let playerState = if player == 1 then p1 gs else p2 gs
+      baseBoard = board playerState
+      -- đặt từng tàu một
+      go b [] = Just b
+      go b (s:ss) =
+        case placeShipOnBoard b s of
+          Nothing -> trace ("[ERROR] Không thể đặt tàu: " ++ show s) Nothing
+          Just b' -> go b' ss
+  in case go baseBoard newShips of
+       Nothing -> Nothing
+       Just finalBoard ->
+         let newPlayerState = playerState { board = finalBoard, ships = newShips }
+         in if player == 1
+            then Just gs { p1 = newPlayerState }
+            else Just gs { p2 = newPlayerState }
+
+-- | Đặt từng tàu cho người chơi (thường dùng khi người chơi click chuột để đặt)
+placeShipForPlayer :: GameState -> Int -> Ship -> Maybe GameState
+placeShipForPlayer gs player ship =
+  let playerState = if player == 1 then p1 gs else p2 gs
+      b = board playerState
+      currentShips = ships playerState
+  in trace ("[DEBUG] Player " ++ show player ++ " đang đặt tàu: " ++ show ship) $
+     case placeShipOnBoard b ship of
+       Nothing -> trace "[ERROR] Failed to place ship (va chạm hoặc vượt biên)" Nothing
+       Just b' ->
+         let newPlayerState = playerState { board = b', ships = currentShips ++ [ship] }
+         in trace "[OK] Đặt tàu thành công!" $
+            if player == 1
+            then Just gs { p1 = newPlayerState }
+            else Just gs { p2 = newPlayerState }
+
+-- | Đánh dấu người chơi đã sẵn sàng
+setPlayerReady :: GameState -> Int -> GameState
+setPlayerReady gs player =
+  if player == 1
+  then gs { p1 = (p1 gs) { ready = True } }
+  else gs { p2 = (p2 gs) { ready = True } }
+
+-- | Kiểm tra người chơi đã đặt đủ tàu chưa (ít nhất 5)
+hasPlacedAllShips :: GameState -> Int -> Bool
+hasPlacedAllShips gs player =
+  let ss = if player == 1 then ships (p1 gs) else ships (p2 gs)
+  in length ss >= 5
+
+-- | Đặt người thắng
+setWinner :: GameState -> Int -> GameState
+setWinner gs pid = gs { winner = Just pid, phase = GameOver }
