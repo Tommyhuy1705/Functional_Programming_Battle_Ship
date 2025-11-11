@@ -36,7 +36,7 @@ import Network.Message
 -- Misc
 import Data.IORef
 import System.Random (randomRIO)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, isNothing)
 import Data.Foldable (traverse_)
 
 --------------------------------------------------------------------------------
@@ -53,6 +53,7 @@ data GameEnv = GameEnv
   , playerIdRef   :: IORef (Maybe Int)        -- local player id assigned by server
   , sunkPositionsRef :: IORef [(Int, [T.Pos])] -- map owner -> sunk positions known to this client
   , targetMarksRef :: IORef [(Int, [((Int,Int), String)])] -- owner -> list of ((r,c), markType) for target grid (hit/miss/sunk)
+  , loginViewElem :: IORef (Maybe Element)    -- login view element
   }
 
 
@@ -89,6 +90,7 @@ setup window = do
     playerIdRef <- liftIO $ newIORef (Nothing :: Maybe Int)
     sunkPositionsRef <- liftIO $ newIORef ([] :: [(Int, [T.Pos])])
     targetMarksRef <- liftIO $ newIORef ([] :: [(Int, [((Int,Int), String)])])
+    loginViewElem <- liftIO $ newIORef (Nothing :: Maybe Element)
 
     -- tạo environment hoàn chỉnh
     let env = GameEnv
@@ -102,13 +104,15 @@ setup window = do
           , playerIdRef   = playerIdRef
           , sunkPositionsRef = sunkPositionsRef
           , targetMarksRef = targetMarksRef
+          , loginViewElem = loginViewElem
           }
 
     -- tạo view
+    loginView <- createLoginView env p1CellsRef p2CellsRef
+    liftIO $ writeIORef loginViewElem (Just loginView)
     gameView <- createGameView env p1CellsRef p2CellsRef
     liftIO $ writeIORef gameViewElem (Just gameView)
     hideElement gameView
-    loginView <- createLoginView env gameView p1CellsRef p2CellsRef
 
     -- attach các view vào body
     void $ getBody window #+ [element loginView, element gameView]
@@ -451,8 +455,8 @@ sendClientMsg env cm = do
 --------------------------------------------------------------------------------
 -- UI: Login view
 --------------------------------------------------------------------------------
-createLoginView :: GameEnv -> Element -> IORef [[Element]] -> IORef [[Element]] -> UI Element
-createLoginView env gameView p1CellsRef p2CellsRef = do
+createLoginView :: GameEnv -> IORef [[Element]] -> IORef [[Element]] -> UI Element
+createLoginView env p1CellsRef p2CellsRef = do
     usernameInput <- UI.input
         # set UI.type_ "text"
         # set (UI.attr "placeholder") "Username"
@@ -491,11 +495,18 @@ createLoginView env gameView p1CellsRef p2CellsRef = do
                     liftIO $ addUserToEnv uid (Users.userName u)
                     void $ element status # set text ("Welcome " ++ Users.userName u)
                     hideElement loginDiv
-                    showElement gameView
+                    -- Lấy gameView từ env
+                    mGameView <- liftIO $ readIORef (gameViewElem env)
+                    case mGameView of
+                      Just gv -> showElement gv
+                      Nothing -> return ()
                     gs <- liftIO $ readIORef (gameStateRef env)
                     p1Cells <- liftIO $ readIORef p1CellsRef
                     p2Cells <- liftIO $ readIORef p2CellsRef
-                    void $ renderAllBoards env gameView p1Cells p2Cells gs
+                    mGameView <- liftIO $ readIORef (gameViewElem env)
+                    case mGameView of
+                      Just gv -> void $ renderAllBoards env gv p1Cells p2Cells gs
+                      Nothing -> return ()
 
     -- Login (note: this code still uses local Auth, not server-auth)
     on UI.click loginBtn $ \_ -> do
@@ -511,7 +522,11 @@ createLoginView env gameView p1CellsRef p2CellsRef = do
                 liftIO $ addUserToEnv uid name
                 void $ element status # set text ("Welcome " ++ name)
                 hideElement loginDiv
-                showElement gameView
+                -- Lấy gameView từ env
+                mGameView <- liftIO $ readIORef (gameViewElem env)
+                case mGameView of
+                  Just gv -> showElement gv
+                  Nothing -> return ()
                 liftIO $ do
                     msock <- readIORef (sockRef env)
                     case msock of
@@ -524,7 +539,10 @@ createLoginView env gameView p1CellsRef p2CellsRef = do
                 gs <- liftIO $ readIORef (gameStateRef env)
                 p1Cells <- liftIO $ readIORef p1CellsRef
                 p2Cells <- liftIO $ readIORef p2CellsRef
-                void $ renderAllBoards env gameView p1Cells p2Cells gs
+                mGameView <- liftIO $ readIORef (gameViewElem env)
+                case mGameView of
+                  Just gv -> void $ renderAllBoards env gv p1Cells p2Cells gs
+                  Nothing -> return ()
 
     return loginDiv
 
@@ -560,6 +578,17 @@ createGameView env p1CellsRef p2CellsRef = do
 
   -- hide Quit initially; it will be shown when the game is over
   void $ hideElement quitBtn
+  
+  -- Create quit dialog with Restart and Logout options
+  quitDialog <- UI.div # set UI.id_ "quit-dialog" #. "quit-dialog" # set style [("display", "none")] #+
+    [ UI.div #. "quit-dialog-content" #+ [
+        UI.h3 # set text "What would you like to do?"
+      , UI.button # set UI.id_ "restart-btn" # set text "Restart (New Game)"
+      , UI.button # set UI.id_ "logout-btn" # set text "Logout"
+      , UI.button # set UI.id_ "cancel-btn" # set text "Cancel"
+      ]
+    ]
+  
   controlPanel <- UI.div #. "control-panel" #+
     [ element shipSelection
     , element rotateBtn
@@ -568,6 +597,7 @@ createGameView env p1CellsRef p2CellsRef = do
     , element statusMsg
     , UI.h3 # set text "Sunk ships:"
     , element sunkPanel
+    , element quitDialog
     ]
 
   boardsElem <- UI.div #. "boards" #+
@@ -579,7 +609,7 @@ createGameView env p1CellsRef p2CellsRef = do
 
   setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
     carrierBtn battleshipBtn cruiserBtn submarineBtn destroyerBtn
-    myBoardCells targetBoardCells p1CellsRef p2CellsRef
+    myBoardCells targetBoardCells p1CellsRef p2CellsRef quitDialog
 
   return gameDiv
 
@@ -610,15 +640,20 @@ setupGameEvents :: GameEnv -> Element ->
                    Element -> Element -> Element -> Element ->
                    Element -> Element -> Element -> Element -> Element ->
                    [[Element]] -> [[Element]] ->
-                   IORef [[Element]] -> IORef [[Element]] -> UI ()
+                   IORef [[Element]] -> IORef [[Element]] -> Element -> UI ()
 setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
                 carrierBtn battleshipBtn cruiserBtn submarineBtn destroyerBtn
-                myBoardCells targetBoardCells p1CellsRef p2CellsRef = do
+                myBoardCells targetBoardCells p1CellsRef p2CellsRef quitDialog = do
 
     currentShipTypeRef <- liftIO $ newIORef T.Carrier
     shipsPlacedRef     <- liftIO $ newIORef ([] :: [S.Ship])
     isHorizontalRef    <- liftIO $ newIORef True
     isPlacingRef       <- liftIO $ newIORef True
+
+    -- Delay để tìm các button trong dialog (chúng được thêm vào DOM sau)
+    restartBtnRef <- liftIO $ newIORef (Nothing :: Maybe Element)
+    logoutBtnRef <- liftIO $ newIORef (Nothing :: Maybe Element)
+    cancelBtnRef <- liftIO $ newIORef (Nothing :: Maybe Element)
 
     let setStatus txt = void $ element statusMsg # set text txt
     setStatus "Choose a ship to place, then click on your board."
@@ -731,33 +766,111 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
                 setStatus "You are ready (local). Waiting for opponent..."
                 void $ renderAllBoards env gameDiv myBoardCells targetBoardCells gsReady
 
-    -- Quit button: send CMQuit (if connected) and reset local UI/state
+    -- Quit button: show dialog with Restart and Logout options
     on UI.click quitBtn $ \_ -> do
-        msock <- liftIO $ readIORef (sockRef env)
-        case msock of
-          Just _ -> do
-            liftIO $ sendClientMsg env CMQuit
+        void $ showElement quitDialog
+        -- Find the dialog buttons on first click
+        mRestartBtn <- liftIO $ readIORef restartBtnRef
+        mLogoutBtn <- liftIO $ readIORef logoutBtnRef
+        mCancelBtn <- liftIO $ readIORef cancelBtnRef
+        when (isNothing mRestartBtn) $ do
+          rBtn <- getElementById (appWindow env) "restart-btn"
+          liftIO $ writeIORef restartBtnRef rBtn
+        when (isNothing mLogoutBtn) $ do
+          lBtn <- getElementById (appWindow env) "logout-btn"
+          liftIO $ writeIORef logoutBtnRef lBtn
+        when (isNothing mCancelBtn) $ do
+          cBtn <- getElementById (appWindow env) "cancel-btn"
+          liftIO $ writeIORef cancelBtnRef cBtn
+
+    -- Restart button: xóa hết dữ liệu trận cũ và quay lại đặt tàu
+    liftIO $ do
+      threadDelay 100000  -- 0.1 second delay
+      mRestartBtn <- readIORef restartBtnRef
+      case mRestartBtn of
+        Just restartBtn -> do
+          void $ runUI (appWindow env) $ on UI.click restartBtn $ \_ -> do
+            -- Gửi CMQuit nếu có server
+            msock <- liftIO $ readIORef (sockRef env)
+            case msock of
+              Just _ -> liftIO $ sendClientMsg env CMQuit
+              Nothing -> return ()
+            
+            -- Xóa hết dữ liệu trận cũ
             liftIO $ writeIORef (targetMarksRef env) []
             liftIO $ writeIORef (sunkPositionsRef env) []
             liftIO $ writeIORef (gameStateRef env) G.initState
-            setStatus "Quit sent. Resetting to placing ships..."
+            liftIO $ writeIORef shipsPlacedRef []
+            liftIO $ writeIORef isPlacingRef True
+            liftIO $ writeIORef currentShipTypeRef T.Carrier
+            liftIO $ writeIORef isHorizontalRef True
+            
+            -- Reset status message và tất cả UI elements
+            setStatus "Restarting... Choose a ship to place, then click on your board."
+            
+            -- Xóa tất cả đánh dấu trên các board
             myCells <- liftIO $ readIORef p1CellsRef
             tgtCells <- liftIO $ readIORef p2CellsRef
+            forM_ (concat myCells) $ \cell -> void $ element cell # set UI.class_ "cell"
+            forM_ (concat tgtCells) $ \cell -> void $ element cell # set UI.class_ "cell"
+            
+            -- Render lại boards với dữ liệu trống
             gs <- liftIO $ readIORef (gameStateRef env)
             void $ renderAllBoards env gameDiv myCells tgtCells gs
-            -- hide quit button again after reset
+            
+            -- Ẩn dialog và quit button
+            void $ hideElement quitDialog
             void $ hideElement quitBtn
-          Nothing -> do
-            -- offline/local reset
+        Nothing -> return ()
+    
+    -- Logout button: quay lại login, giữ dữ liệu tàu
+    liftIO $ do
+      mLogoutBtn <- readIORef logoutBtnRef
+      case mLogoutBtn of
+        Just logoutBtn -> do
+          void $ runUI (appWindow env) $ on UI.click logoutBtn $ \_ -> do
+            -- Gửi CMQuit nếu có server
+            msock <- liftIO $ readIORef (sockRef env)
+            case msock of
+              Just _ -> liftIO $ sendClientMsg env CMQuit
+              Nothing -> return ()
+            
+            -- Xóa chỉ dữ liệu ván chơi hiện tại (target grid, sunk ships)
+            -- Giữ lại dữ liệu đặt tàu (shipsPlacedRef, gameStateRef với các tàu được đặt)
             liftIO $ writeIORef (targetMarksRef env) []
             liftIO $ writeIORef (sunkPositionsRef env) []
-            liftIO $ writeIORef (gameStateRef env) G.initState
-            setStatus "Not connected. Local reset to placing ships."
-            myCells <- liftIO $ readIORef p1CellsRef
+            liftIO $ writeIORef (playerIdRef env) Nothing
+            
+            -- Reset phase về PlacingShips để có thể đặt tàu lại
+            liftIO $ modifyIORef' (gameStateRef env) $ \gs -> gs { G.phase = G.PlacingShips }
+            
+            -- Xóa kết nối socket
+            liftIO $ writeIORef (sockRef env) Nothing
+            
+            -- Xóa tất cả đánh dấu trên target grid (giữ lại my fleet)
             tgtCells <- liftIO $ readIORef p2CellsRef
-            gs <- liftIO $ readIORef (gameStateRef env)
-            void $ renderAllBoards env gameDiv myCells tgtCells gs
+            forM_ (concat tgtCells) $ \cell -> void $ element cell # set UI.class_ "cell"
+            
+            -- Ẩn dialog, quit button và game view
+            void $ hideElement quitDialog
             void $ hideElement quitBtn
+            void $ hideElement gameDiv
+            
+            -- Lấy login view từ env và hiển thị
+            mLoginView <- liftIO $ readIORef (loginViewElem env)
+            case mLoginView of
+              Just lv -> void $ showElement lv
+              Nothing -> return ()
+        Nothing -> return ()
+
+    -- Cancel button: đóng dialog
+    liftIO $ do
+      mCancelBtn <- readIORef cancelBtnRef
+      case mCancelBtn of
+        Just cancelBtn -> do
+          void $ runUI (appWindow env) $ on UI.click cancelBtn $ \_ -> do
+            void $ hideElement quitDialog
+        Nothing -> return ()
 
     -- Firing (target board): gửi CMFire nếu có server; nếu offline thì local applyFire
     -- Firing (target board): gửi CMFire nếu có server; nếu offline thì local applyFire

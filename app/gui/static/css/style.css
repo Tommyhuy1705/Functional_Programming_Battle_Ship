@@ -208,3 +208,76 @@ body {
 .cell.target-miss {
   background-color: lightblue;
 }
+
+/* ====== QUIT DIALOG ====== */
+.quit-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.quit-dialog-content {
+    background: rgba(30, 60, 114, 0.95);
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+    border: 2px solid #06d6a0;
+}
+
+.quit-dialog-content h3 {
+    color: #ffb703;
+    margin-top: 0;
+    margin-bottom: 30px;
+    font-size: 1.5em;
+}
+
+.quit-dialog-content button {
+    display: block;
+    width: 250px;
+    padding: 12px 20px;
+    margin: 10px auto;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1em;
+    transition: all 0.3s;
+}
+
+.quit-dialog-content button:first-of-type {
+    background-color: #06d6a0;
+    color: black;
+}
+
+.quit-dialog-content button:first-of-type:hover {
+    background-color: #04b383;
+    transform: scale(1.05);
+}
+
+.quit-dialog-content button:nth-of-type(2) {
+    background-color: #fb8500;
+    color: white;
+}
+
+.quit-dialog-content button:nth-of-type(2):hover {
+    background-color: #ffb703;
+    transform: scale(1.05);
+}
+
+.quit-dialog-content button:last-of-type {
+    background-color: #8d99ae;
+    color: white;
+}
+
+.quit-dialog-content button:last-of-type:hover {
+    background-color: #6b7284;
+    transform: scale(1.05);
+}
