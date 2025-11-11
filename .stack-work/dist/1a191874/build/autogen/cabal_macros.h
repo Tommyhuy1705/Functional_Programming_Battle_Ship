@@ -40,6 +40,16 @@
   (major1) == 4 && (major2) <  20 || \
   (major1) == 4 && (major2) == 20 && (minor) <= 2)
 #endif /* MIN_VERSION_base */
+/* package base64-bytestring-1.2.1.0 */
+#ifndef VERSION_base64_bytestring
+#define VERSION_base64_bytestring "1.2.1.0"
+#endif /* VERSION_base64_bytestring */
+#ifndef MIN_VERSION_base64_bytestring
+#define MIN_VERSION_base64_bytestring(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  2 || \
+  (major1) == 1 && (major2) == 2 && (minor) <= 1)
+#endif /* MIN_VERSION_base64_bytestring */
 /* package bytestring-0.12.2.0 */
 #ifndef VERSION_bytestring
 #define VERSION_bytestring "0.12.2.0"
@@ -60,6 +70,46 @@
   (major1) == 0 && (major2) <  7 || \
   (major1) == 0 && (major2) == 7 && (minor) <= 0)
 #endif /* MIN_VERSION_containers */
+/* package cryptonite-0.30 */
+#ifndef VERSION_cryptonite
+#define VERSION_cryptonite "0.30"
+#endif /* VERSION_cryptonite */
+#ifndef MIN_VERSION_cryptonite
+#define MIN_VERSION_cryptonite(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  30 || \
+  (major1) == 0 && (major2) == 30 && (minor) <= 0)
+#endif /* MIN_VERSION_cryptonite */
+/* package directory-1.3.8.5 */
+#ifndef VERSION_directory
+#define VERSION_directory "1.3.8.5"
+#endif /* VERSION_directory */
+#ifndef MIN_VERSION_directory
+#define MIN_VERSION_directory(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  3 || \
+  (major1) == 1 && (major2) == 3 && (minor) <= 8)
+#endif /* MIN_VERSION_directory */
+/* package dotenv-0.12.0.0 */
+#ifndef VERSION_dotenv
+#define VERSION_dotenv "0.12.0.0"
+#endif /* VERSION_dotenv */
+#ifndef MIN_VERSION_dotenv
+#define MIN_VERSION_dotenv(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  12 || \
+  (major1) == 0 && (major2) == 12 && (minor) <= 0)
+#endif /* MIN_VERSION_dotenv */
+/* package filepath-1.5.4.0 */
+#ifndef VERSION_filepath
+#define VERSION_filepath "1.5.4.0"
+#endif /* VERSION_filepath */
+#ifndef MIN_VERSION_filepath
+#define MIN_VERSION_filepath(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  5 || \
+  (major1) == 1 && (major2) == 5 && (minor) <= 4)
+#endif /* MIN_VERSION_filepath */
 /* package mtl-2.3.1 */
 #ifndef VERSION_mtl
 #define VERSION_mtl "2.3.1"
@@ -80,6 +130,26 @@
   (major1) == 3 && (major2) <  2 || \
   (major1) == 3 && (major2) == 2 && (minor) <= 8)
 #endif /* MIN_VERSION_network */
+/* package postgresql-simple-0.7.0.1 */
+#ifndef VERSION_postgresql_simple
+#define VERSION_postgresql_simple "0.7.0.1"
+#endif /* VERSION_postgresql_simple */
+#ifndef MIN_VERSION_postgresql_simple
+#define MIN_VERSION_postgresql_simple(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  7 || \
+  (major1) == 0 && (major2) == 7 && (minor) <= 0)
+#endif /* MIN_VERSION_postgresql_simple */
+/* package random-1.2.1.3 */
+#ifndef VERSION_random
+#define VERSION_random "1.2.1.3"
+#endif /* VERSION_random */
+#ifndef MIN_VERSION_random
+#define MIN_VERSION_random(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  2 || \
+  (major1) == 1 && (major2) == 2 && (minor) <= 1)
+#endif /* MIN_VERSION_random */
 /* package stm-2.5.3.1 */
 #ifndef VERSION_stm
 #define VERSION_stm "2.5.3.1"
@@ -100,6 +170,16 @@
   (major1) == 2 && (major2) <  1 || \
   (major1) == 2 && (major2) == 1 && (minor) <= 3)
 #endif /* MIN_VERSION_text */
+/* package threepenny-gui-0.9.4.2 */
+#ifndef VERSION_threepenny_gui
+#define VERSION_threepenny_gui "0.9.4.2"
+#endif /* VERSION_threepenny_gui */
+#ifndef MIN_VERSION_threepenny_gui
+#define MIN_VERSION_threepenny_gui(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  9 || \
+  (major1) == 0 && (major2) == 9 && (minor) <= 4)
+#endif /* MIN_VERSION_threepenny_gui */
 /* package transformers-0.6.1.1 */
 #ifndef VERSION_transformers
 #define VERSION_transformers "0.6.1.1"
@@ -171,16 +251,6 @@
   (major1) == 0 && (major2) <  68 || \
   (major1) == 0 && (major2) == 68 && (minor) <= 10)
 #endif /* MIN_TOOL_VERSION_hsc2hs */
-/* tool pkg-config-2.1.0 */
-#ifndef TOOL_VERSION_pkg_config
-#define TOOL_VERSION_pkg_config "2.1.0"
-#endif /* TOOL_VERSION_pkg_config */
-#ifndef MIN_TOOL_VERSION_pkg_config
-#define MIN_TOOL_VERSION_pkg_config(major1,major2,minor) (\
-  (major1) <  2 || \
-  (major1) == 2 && (major2) <  1 || \
-  (major1) == 2 && (major2) == 1 && (minor) <= 0)
-#endif /* MIN_TOOL_VERSION_pkg_config */
 /* tool runghc-9.10.3 */
 #ifndef TOOL_VERSION_runghc
 #define TOOL_VERSION_runghc "9.10.3"
@@ -193,10 +263,10 @@
 #endif /* MIN_TOOL_VERSION_runghc */
 
 #ifndef CURRENT_PACKAGE_KEY
-#define CURRENT_PACKAGE_KEY "battleship-0.1.0-9mbef3Ec1T8J5GsiNi72K8"
+#define CURRENT_PACKAGE_KEY "battleship-0.1.0-Brv4rfCBFgoHRtWx0gC062"
 #endif /* CURRENT_packageKey */
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "battleship-0.1.0-9mbef3Ec1T8J5GsiNi72K8"
+#define CURRENT_COMPONENT_ID "battleship-0.1.0-Brv4rfCBFgoHRtWx0gC062"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0"

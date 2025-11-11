@@ -1,11 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BlockArguments #-}
+
 module Network.Server (runServer) where
 
 import qualified Network.Socket as NS
 import qualified Network.Socket.ByteString as NSB
 import Control.Concurrent
 import Control.Exception (bracket, finally, try, SomeException)
-import Control.Monad (forever, when, unless)
+import Control.Monad (forever, when, unless, forM_)
+
 import Utils.Concurrency (GameLock, createGameLock, withGameLock)
 import Utils.Parallel (runParallel_)
 import Data.Aeson (encode, decode)
@@ -13,6 +16,7 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString as BS
 import Network.Message
 import Game.State
+import Game.Board (initBoard)
 import Game.Types
 import Game.Ship
 import Game.Logic (ShotResult(..), allSunk)
@@ -62,7 +66,6 @@ clientHandler client serverState = do
       pid  = clientId client
       mstate = gameState serverState
   sendServer sock (SMWelcome { playerId = pid, playerName = clientName client })
-  when (pid == 1) $ sendServer sock SMYourTurn -- let player 1 start
   let
     loop = do
       msgbs <- recvLine sock
@@ -80,6 +83,15 @@ clientHandler client serverState = do
 
     handleClientMsg :: ClientMsg -> IO ()
     handleClientMsg cm = case cm of
+      CMQuit -> do
+        -- reset game to placing phase and clear boards/ships/ready flags
+        modifyMVar_ mstate $ \_ -> return $ initState { phase = PlacingShips }
+        -- notify clients to re-place ships and send empty boards
+        cls <- readMVar (clients serverState)
+        mapM_ (\c -> sendServer (clientSocket c) (SMGamePhase { smPhase = PlacingShips })) cls
+        mapM_ (\c -> sendServer (clientSocket c) (SMUpdateBoard (getPlayerBoard initState (clientId c)))) cls
+        putStrLn "Received CMQuit: resetting game to PlacingShips"
+
       CMReady -> do
         -- mark this player ready
         _ <- withGameLock mstate $ \gs -> do
@@ -90,16 +102,22 @@ clientHandler client serverState = do
         let bothReady = ready (p1 gsAfter) && ready (p2 gsAfter)
             bothPlaced = hasPlacedAllShips gsAfter 1 && hasPlacedAllShips gsAfter 2
         when (bothReady && bothPlaced) $ do
-          -- transition to Playing
+          -- Bắt đầu trận đấu
           modifyMVar_ mstate $ \gs -> return $ gs { phase = Playing }
+
           clientsList <- readMVar (clients serverState)
+          putStrLn "  Both players ready! Starting game..."
+
+          -- Gửi thông báo bắt đầu cho cả hai
           mapM_ (\c -> sendServer (clientSocket c) (SMGamePhase { smPhase = Playing })) clientsList
-          -- notify whose turn it is
-          gsNow <- readMVar mstate
-          let t = turn gsNow
-          case find (\c -> clientId c == t) clientsList of
-            Just c -> sendServer (clientSocket c) SMYourTurn
-            Nothing -> return ()
+
+          -- Gửi trạng thái lượt chơi rõ ràng
+          let t = 1  -- mặc định Player 1 luôn bắt đầu
+          forM_ clientsList $ \c ->
+            if clientId c == t
+              then sendServer (clientSocket c) SMYourTurn
+              else sendServer (clientSocket c) SMOpponentTurn
+
 
       CMPlaceShip { psShipId = sid, psType = stype, psPos = pos, psHoriz = horiz } -> do
         case parseShipType stype of
@@ -117,52 +135,85 @@ clientHandler client serverState = do
                   -- return updated board for player
                   gs' <- readMVar mstate
                   sendServer sock (SMUpdateBoard (getPlayerBoard gs' pid))
+                  -- After a successful placement, re-check if both players are ready AND both have placed all ships.
+                  -- This handles the race where the client may have sent CMReady before the last CMPlaceShip
+                  -- was processed by the server. If both conditions hold, start the game and notify clients.
+                  let bothReady = ready (p1 gs') && ready (p2 gs')
+                      bothPlaced = hasPlacedAllShips gs' 1 && hasPlacedAllShips gs' 2
+                  when (bothReady && bothPlaced) $ do
+                    modifyMVar_ mstate $ \gs -> return $ gs { phase = Playing }
+                    clientsList' <- readMVar (clients serverState)
+                    putStrLn "  Both players ready after placement! Starting game..."
+                    mapM_ (\c -> sendServer (clientSocket c) (SMGamePhase { smPhase = Playing })) clientsList'
+                    -- inform who has the turn (default player 1)
+                    let t = 1
+                    forM_ clientsList' $ \c ->
+                      if clientId c == t
+                        then sendServer (clientSocket c) SMYourTurn
+                        else sendServer (clientSocket c) SMOpponentTurn
                 else sendServer sock (SMError { errorMsg = "Placement conflicts with existing ships or duplicate ship type" })
 
       CMFire { fireTarget = pos } -> do
-        -- enforce that the game is in Playing phase and it's this player's turn
+        putStrLn $ "[DEBUG] Player " ++ show pid ++ " fired at " ++ show pos
         gsNow <- readMVar mstate
         if phase gsNow /= Playing
           then sendServer sock (SMError { errorMsg = "Game is not in playing phase" })
           else if turn gsNow /= pid
             then sendServer sock (SMError { errorMsg = "Not your turn" })
             else do
-              -- apply fire to state using the game lock helper
+              -- apply the fire under game lock and get the result
               res <- withGameLock mstate $ \gs ->
                 let (gs', res') = applyFire gs pid pos
                 in return (gs', res')
-              -- send result to firing client
-              sendServer sock (SMResult { res = show res, resTarget = pos })
-              -- notify opponent: find other client and send them the result and updated board
+              putStrLn $ "[DEBUG] Fire result: " ++ show res
+              let resTxt = case res of
+                    ShotHit  -> "hit"
+                    ShotMiss -> "miss"
+                    ShotSunk _ -> "sunk"
+              -- defender id (whose board was affected)
+              let defenderId = if pid == 1 then 2 else 1
+
+              -- read updated game state to compute defender board and ship list
+              gs' <- readMVar mstate
+              let defBoard = getPlayerBoard gs' defenderId
+                  defenderShips = if defenderId == 1 then ships (p1 gs') else ships (p2 gs')
+
+              -- if a ship was sunk, lookup its type and positions
+              let (mShipType, mShipPositions) = case res of
+                    ShotSunk sid -> case find (\s -> shipId s == sid) defenderShips of
+                                      Just sh -> (Just (show (shipType sh)), Just (positions sh))
+                                      Nothing -> (Nothing, Nothing)
+                    _ -> (Nothing, Nothing)
+
+              -- notify attacker with result (include sunk info if present)
+              sendServer sock (SMResult { res = resTxt, resTarget = pos, resOwner = defenderId
+                                        , resShipType = mShipType, resShipPositions = mShipPositions })
+
+              -- notify opponent (defender) with same result and updated board
               clientsList <- readMVar (clients serverState)
               let mOpp = find (\c -> clientId c /= pid) clientsList
               case mOpp of
                 Nothing -> return ()
                 Just opp -> do
-                  -- read updated game state to compute defender board
-                  gs' <- readMVar mstate
-                  let defBoard = if pid == 1 then getPlayerBoard gs' 2 else getPlayerBoard gs' 1
-                      defenderShips = if pid == 1 then ships (p2 gs') else ships (p1 gs')
-                  -- send notifications in parallel
-                  runParallel_ [ sendServer (clientSocket opp) (SMResult { res = show res, resTarget = pos })
+                  runParallel_ [ sendServer (clientSocket opp) (SMResult { res = resTxt, resTarget = pos, resOwner = defenderId
+                                                                             , resShipType = mShipType, resShipPositions = mShipPositions })
                                , sendServer (clientSocket opp) (SMUpdateBoard defBoard)
                                ]
-                  -- check for game over (all defender ships sunk)
-                  if allSunk defBoard defenderShips
-                    then do
-                      -- update game state: set winner and phase
-                      modifyMVar_ mstate $ \gs -> return $ setWinner gs pid
-                      -- broadcast game over to all clients
-                      cls <- readMVar (clients serverState)
-                      mapM_ (\c -> sendServer (clientSocket c) (SMGameOver pid)) cls
-                      putStrLn $ "Player " ++ show pid ++ " has sunk all enemy ships. Mission completed!"
-                    else do
-                      -- not game over: notify whose turn it is now
-                      gsAfter <- readMVar mstate
-                      let t = turn gsAfter
-                      case find (\c -> clientId c == t) clientsList of
-                        Just c -> sendServer (clientSocket c) SMYourTurn
-                        Nothing -> return ()
+
+              -- check for game over (all defender ships sunk)
+              if allSunk defBoard defenderShips
+                then do
+                  modifyMVar_ mstate $ \gs -> return $ setWinner gs pid
+                  cls <- readMVar (clients serverState)
+                  mapM_ (\c -> sendServer (clientSocket c) (SMGameOver pid)) cls
+                  putStrLn $ "Player " ++ show pid ++ " has sunk all enemy ships. Mission completed!"
+                else do
+                  -- not game over: notify whose turn it is now
+                  gsAfter <- readMVar mstate
+                  let t = turn gsAfter
+                  case find (\c -> clientId c == t) clientsList of
+                    Just c -> sendServer (clientSocket c) SMYourTurn
+                    Nothing -> return ()
       _ -> putStrLn $ "Unhandled client msg: " ++ show cm
 
   loop

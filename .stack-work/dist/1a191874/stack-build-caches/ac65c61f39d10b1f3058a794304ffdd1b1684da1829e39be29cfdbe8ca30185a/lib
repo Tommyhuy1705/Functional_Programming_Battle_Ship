@@ -1,0 +1,46 @@
+C:\stack\programs\x86_64-windows\ghc-9.10.3\lib\x86_64-windows-ghc-9.10.3\rts-1.0.2\include\ghcversion.h:
+  hash: 7038bb968ecc358729edd5d1e72a638409aaf5ea6ab13ce6ec7f253daa3b6529
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\autogen\Paths_battleship.hs:
+  hash: abe7281669a5396026c18797987b3bcd9be21075d81a840b42e4b1289a643d9c
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\autogen\cabal_macros.h:
+  hash: 95aeff2946fdbe5a211e48660a588b1e52bdd5f977fab3596d7e1b58d25bfd35
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\LICENSE:
+  hash: f0a845a6ab2ad9db21e4283401e11be8bca48c8816169a1119c93820ef4556da
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\README.md:
+  hash: 09a6dc938f91ef4c18f1fef45fc2c64f572aa737caac9608b91859684946502b
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\battleship.cabal:
+  hash: cb44861af76bd93c2ccca6fd69f84328899794fa2e92ed12e0852ffaa9805224
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\package.yaml:
+  hash: b0b25943d6da873d3a0964ea5d183c15a64acb0d61459d294439a7c696b55a11
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Config.hs:
+  hash: 756d0bb1167eabd5e02b107ae421a7d054f966f64f019373df397e9a6c37a22e
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Database\Auth.hs:
+  hash: acb0d07dc41ee44aaa0b6ef1c1025945446232fc2489fda651eff92dc244003e
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Database\Users.hs:
+  hash: 0292169109da14c2e2e5c9ec81ee997d1debb0efc0b37c8f2a6ba401c7b7ff37
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Game\Board.hs:
+  hash: 7256359b57a7137db4e4a4a4e81be75567590d6fe861859965469874b9cebf9f
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Game\Logic.hs:
+  hash: 52b8a2b747390522ff99201461627eecaa6a0f957af4e701cacca44de7504ff0
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Game\Player.hs:
+  hash: 755b6a93da0111da007701886c8735657a3e4954db34717e68fe0302e498f624
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Game\Ship.hs:
+  hash: 323c0095b565ab4327bde6b331c388d76798b74d66a94ca74dcec4bdb7b94ba4
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Game\State.hs:
+  hash: b259de49e1fcf963180f0e313bcb24e75ee04b6ee1374b800daef545d5828e87
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Game\Types.hs:
+  hash: a05526db9679f5ad7df9b65c1b0ded8260ccf66be012024503ea3b22f2b43054
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Network\Client.hs:
+  hash: 6317cc9e10cdc797391ed9a629f288a4c7859d01032250a5bb98185b947db452
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Network\Message.hs:
+  hash: e5839dd40d6d2edbcc3cf23e4b2361c46984d6f19e23d54a063944d8bae8f6dd
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Network\Server.hs:
+  hash: b7a1a59defc06172e2138d6609befc8cbae6feb52ae012f6f6ae8d10ca0a8297
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Utils\Concurrency.hs:
+  hash: e9c5cc981298dafa9685333bc5e2e812265a4b53ed11dcaf96064628db4b63b5
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Utils\Parallel.hs:
+  hash: 2a84aeaf90c9a259ab2daaf2346bfea1223a27651a9c2f148c3852e81f1cd868
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Utils\Parser.hs:
+  hash: 2fc035c21f3a058441d929fc962bcb6951e5c53186da059ee84460f0728bf919
+D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\src\Utils\Serializer.hs:
+  hash: 114a9aff3ba03971bbdbd220cebeb277a684e6bef31a6d57f0adbcdabcff9b86

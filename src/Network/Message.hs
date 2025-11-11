@@ -34,7 +34,11 @@ data ServerMsg
   = SMWelcome { playerId :: Int, playerName :: String }
   | SMGamePhase { smPhase :: GamePhase }
   | SMYourTurn
-  | SMResult { res :: String, resTarget :: Pos } -- "Hit","Miss","Sunk"
+  | SMBothReady
+  | SMOpponentTurn
+  | SMResult { res :: String, resTarget :: Pos, resOwner :: Int, resShipType :: Maybe String, resShipPositions :: Maybe [Pos] }
+    -- "Hit","Miss","Sunk" and which player's board was affected. If a ship
+    -- was sunk, resShipType contains the ship type name and resShipPositions the list of positions.
   | SMUpdateBoard { board :: Board }
   | SMGameOver { winner :: Int }
   | SMError { errorMsg :: String }

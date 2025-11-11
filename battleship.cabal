@@ -9,7 +9,7 @@ version:        0.1.0
 description:    A networked Battleship game implementation in Haskell
 homepage:       https://github.com/Tommyhuy1705/Functional_Programming_Battle_Ship#readme
 bug-reports:    https://github.com/Tommyhuy1705/Functional_Programming_Battle_Ship/issues
-author:         Tommyhuy1705
+author:         Tommyhu`y1705
 maintainer:     your.email@example.com
 copyright:      2025 Tommyhuy1705
 license:        BSD3
@@ -26,6 +26,8 @@ source-repository head
 library
   exposed-modules:
       Config
+      Database.Auth
+      Database.Users
       Game.Board
       Game.Logic
       Game.Player
@@ -47,12 +49,20 @@ library
       aeson
     , async
     , base >=4.7 && <5
+    , base64-bytestring
     , bytestring
     , containers
+    , cryptonite
+    , directory
+    , dotenv
+    , filepath
     , mtl
     , network
+    , postgresql-simple
+    , random
     , stm
     , text
+    , threepenny-gui
     , transformers
   default-language: Haskell2010
 
@@ -67,13 +77,50 @@ executable battleship-client
       aeson
     , async
     , base >=4.7 && <5
+    , base64-bytestring
     , battleship
     , bytestring
     , containers
+    , cryptonite
+    , directory
+    , dotenv
+    , filepath
     , mtl
     , network
+    , postgresql-simple
+    , random
     , stm
     , text
+    , threepenny-gui
+    , transformers
+  default-language: Haskell2010
+
+executable battleship-gui
+  main-is: Main.hs
+  other-modules:
+      Paths_battleship
+  hs-source-dirs:
+      app/gui
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , async
+    , base >=4.7 && <5
+    , base64-bytestring
+    , battleship
+    , bytestring
+    , containers
+    , cryptonite
+    , directory
+    , dotenv
+    , filepath
+    , mtl
+    , network
+    , postgresql-simple
+    , random
+    , stm
+    , text
+    , threepenny-gui
     , transformers
   default-language: Haskell2010
 
@@ -88,13 +135,21 @@ executable battleship-server
       aeson
     , async
     , base >=4.7 && <5
+    , base64-bytestring
     , battleship
     , bytestring
     , containers
+    , cryptonite
+    , directory
+    , dotenv
+    , filepath
     , mtl
     , network
+    , postgresql-simple
+    , random
     , stm
     , text
+    , threepenny-gui
     , transformers
   default-language: Haskell2010
 
@@ -113,13 +168,21 @@ test-suite battleship-test
     , aeson
     , async
     , base >=4.7 && <5
+    , base64-bytestring
     , battleship
     , bytestring
     , containers
+    , cryptonite
+    , directory
+    , dotenv
+    , filepath
     , hspec
     , mtl
     , network
+    , postgresql-simple
+    , random
     , stm
     , text
+    , threepenny-gui
     , transformers
   default-language: Haskell2010
