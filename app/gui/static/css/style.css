@@ -109,6 +109,9 @@ body {
 .cell.miss {
     background-color: #8d99ae;
 }
+.cell.target-sunk {
+    background-color: #d90429;
+}
 
 /* ====== CONTROLS ====== */
 .control-panel {
