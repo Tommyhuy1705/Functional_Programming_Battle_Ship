@@ -268,4 +268,4 @@ Mở trình duyệt và truy cập `http://localhost:8023` (cho client 1) và `h
 
 ## 8\. Giấy phép
 
-Dự án phân phối theo giấy phép **BSD3 License** — tự do sử dụng và chỉnh sửa cho mục đích học tập và nghiên cứu.
+Dự án phân phối theo giấy phép **BSD3 License** - tự do sử dụng và chỉnh sửa cho mục đích học tập và nghiên cứu.
