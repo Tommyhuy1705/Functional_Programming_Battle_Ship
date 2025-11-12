@@ -111,6 +111,8 @@ placeShipForPlayer gs player ship =
             then Just gs { p1 = newPlayerState }
             else Just gs { p2 = newPlayerState }
 
+
+
 -- | Đánh dấu người chơi đã sẵn sàng
 setPlayerReady :: GameState -> Int -> GameState
 setPlayerReady gs player =
