@@ -1,16 +1,16 @@
 C:\stack\programs\x86_64-windows\ghc-9.10.3\lib\x86_64-windows-ghc-9.10.3\rts-1.0.2\include\ghcversion.h:
   hash: 7038bb968ecc358729edd5d1e72a638409aaf5ea6ab13ce6ec7f253daa3b6529
-? D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\battleship-client\autogen\Paths_battleship.hs
-: hash: c599d355658448c5430142f7d0695f1c5b59455566e20c1cd98339b2b04e3fe4
-? D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\battleship-client\autogen\cabal_macros.h
+? D:\CS\lap_trinh_ham\final2\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\battleship-client\autogen\Paths_battleship.hs
+: hash: 19e47aaba158f346afb9cb5451dfade7b0fb7e57a380936b49ee7dbac3965e30
+? D:\CS\lap_trinh_ham\final2\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\battleship-client\autogen\cabal_macros.h
 : hash: cdb1334ca8f2a1a6ff81fb55890c717bb529430a209d396c2e60363095bfe42c
-D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\LICENSE:
+D:\CS\lap_trinh_ham\final2\Functional_Programming_Battle_Ship\LICENSE:
   hash: f0a845a6ab2ad9db21e4283401e11be8bca48c8816169a1119c93820ef4556da
-D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\README.md:
-  hash: 09a6dc938f91ef4c18f1fef45fc2c64f572aa737caac9608b91859684946502b
-D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\app\client\Main.hs:
+D:\CS\lap_trinh_ham\final2\Functional_Programming_Battle_Ship\README.md:
+  hash: 553b6bbe257e957deeccf1b8149c531fa1d4c470a100163b1d9939da2328cd86
+D:\CS\lap_trinh_ham\final2\Functional_Programming_Battle_Ship\app\client\Main.hs:
   hash: e655127a5816b1d37cd68eeba44d83798f59f8a5b2c49e3acf7dd2ed56307c27
-D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\battleship.cabal:
-  hash: cb44861af76bd93c2ccca6fd69f84328899794fa2e92ed12e0852ffaa9805224
-D:\CS\lap_trinh_ham\final\Functional_Programming_Battle_Ship\package.yaml:
+D:\CS\lap_trinh_ham\final2\Functional_Programming_Battle_Ship\battleship.cabal:
+  hash: 5cdaafc1f0ed2bb92d9db20b4b7735f7f9eba9dceee499cce4d06c0f531d6bb3
+D:\CS\lap_trinh_ham\final2\Functional_Programming_Battle_Ship\package.yaml:
   hash: b0b25943d6da873d3a0964ea5d183c15a64acb0d61459d294439a7c696b55a11
