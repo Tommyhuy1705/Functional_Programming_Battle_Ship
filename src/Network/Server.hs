@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Network.Server (runServer) where
 
@@ -7,7 +8,10 @@ import qualified Network.Socket as NS
 import qualified Network.Socket.ByteString as NSB
 import Control.Concurrent
 import Control.Exception (bracket, finally, try, SomeException)
-import Control.Monad (forever, when, unless, forM_)
+
+import Control.Monad (forever, when, unless, forM_, void, filterM)
+import Control.Concurrent.MVar (modifyMVar_)
+
 
 import Utils.Concurrency (GameLock, createGameLock, withGameLock)
 import Utils.Parallel (runParallel_)
@@ -20,7 +24,7 @@ import Game.Board (initBoard)
 import Game.Types
 import Game.Ship
 import Game.Logic (ShotResult(..), allSunk)
-import Data.List (find)
+import Data.List (find, (\\), nub)
 
 data Client = Client 
     { clientSocket :: NS.Socket
@@ -31,6 +35,7 @@ data Client = Client
 data ServerState = ServerState
     { gameState :: MVar GameState
     , clients :: MVar [Client]
+    , rematchVotes  :: MVar [Int] 
     }
 
 runServer :: String -> IO ()
@@ -44,21 +49,58 @@ runServer port = do
   putStrLn $ "Server listening on port " ++ port
   mstate <- createGameLock initState
   mclients <- newMVar []
-  let serverState = ServerState mstate mclients
+  remVotes <- newMVar []
+
+  let serverState = ServerState mstate mclients  remVotes
+
   forever $ do
     (clientSock, _) <- NS.accept sock
-    clients <- readMVar mclients
-    if length clients >= 2
+    putStrLn "Incoming connection..."
+
+    -- Lọc danh sách client còn sống
+    cls <- readMVar mclients
+    aliveList <- filterM isClientAlive cls
+    modifyMVar_ mclients (const (return aliveList))
+
+    -- Kiểm tra slot trống (1 hoặc 2)
+    let usedIds = nub (map clientId aliveList)
+        allIds = [1,2]
+        available = allIds \\ usedIds
+
+    if null available
       then do
         putStrLn "Game full, rejecting connection"
-        NS.close clientSock
+        _ <- try (NS.close clientSock) :: IO (Either SomeException ())
+        return ()
       else do
-        let clientId = length clients + 1
-        putStrLn $ "Client " ++ show clientId ++ " connected"
-        let client = Client clientSock clientId ("Player " ++ show clientId)
-        modifyMVar_ mclients $ \cs -> return $ cs ++ [client]
-        _ <- forkIO $ clientHandler client serverState `finally` handleDisconnect client serverState
-        when (clientId == 2) $ startGame serverState
+        let cid = head available
+        putStrLn $ "Client connected as Player " ++ show cid
+        let client = Client clientSock cid ("Player " ++ show cid)
+
+        -- Nếu Player này từng tồn tại, thay thế vào vị trí cũ
+        modifyMVar_ mclients $ \cs -> do
+          let csFiltered = filter (\c -> clientId c /= cid) cs
+          return $ csFiltered ++ [client]
+
+        -- Gửi thông báo welcome
+        _ <- forkIO $ finally (clientHandler client serverState)
+                              (handleDisconnect client serverState)
+
+        -- Nếu sau khi thêm đủ 2 player thì bắt đầu lại game
+        newList <- readMVar mclients
+        when (length newList == 2) $ do
+          putStrLn "Both players connected/reconnected. Starting game..."
+          startGame serverState
+
+
+-- Helper: kiểm tra socket còn alive
+isClientAlive :: Client -> IO Bool
+isClientAlive c = do
+  let sock = clientSocket c
+  eres <- try (NS.getPeerName sock) :: IO (Either SomeException NS.SockAddr)
+  case eres of
+    Left _  -> return False   -- lỗi: socket không còn hoạt động
+    Right _ -> return True
 
 clientHandler :: Client -> ServerState -> IO ()
 clientHandler client serverState = do
@@ -214,6 +256,51 @@ clientHandler client serverState = do
                   case find (\c -> clientId c == t) clientsList of
                     Just c -> sendServer (clientSocket c) SMYourTurn
                     Nothing -> return ()
+      CMRequestRematch -> do
+        putStrLn $ "Player " ++ show pid ++ " requested a rematch."
+        modifyMVar_ (rematchVotes serverState) $ \votes -> do
+          let votes' = nub (pid : votes)
+          when (length votes' == 1) $ do
+            cls <- readMVar (clients serverState)
+            let mOpp = find (\c -> clientId c /= pid) cls
+            case mOpp of
+              Nothing -> putStrLn "No opponent to offer rematch."
+              Just opp -> sendServer (clientSocket opp) (SMRematchRequested pid)
+          when (length votes' == 2) $ do
+            -- cả hai player đã bấm rematch
+            putStrLn "Both players requested rematch. Resetting game state..."
+            modifyMVar_ (gameState serverState) $ \_ -> return $ initState { phase = PlacingShips }
+            cls <- readMVar (clients serverState)
+            forM_ cls $ \c -> do
+              sendServer (clientSocket c) SMRematchAccepted
+              sendServer (clientSocket c) (SMGamePhase PlacingShips)
+              sendServer (clientSocket c) (SMUpdateBoard (getPlayerBoard initState (clientId c)))
+            putStrLn "Rematch started - both players return to PlacingShips phase."
+            -- reset lại vote để lần sau có thể rematch tiếp
+            modifyMVar_ (rematchVotes serverState) (const (return []))
+          return votes'
+
+
+
+      CMAcceptRematch -> do
+        putStrLn $ "Player " ++ show pid ++ " accepted rematch."
+        -- Reset lại game cho cả hai
+        modifyMVar_ mstate $ \_ -> return $ initState { phase = PlacingShips }
+        cls <- readMVar (clients serverState)
+        mapM_ (\c -> do
+                  sendServer (clientSocket c) SMRematchAccepted
+                  sendServer (clientSocket c) (SMGamePhase PlacingShips)
+                  sendServer (clientSocket c) (SMUpdateBoard (getPlayerBoard initState (clientId c)))
+              ) cls
+        putStrLn "Rematch started - both players return to PlacingShips phase."
+
+      CMDeclineRematch -> do
+        putStrLn $ "Player " ++ show pid ++ " declined rematch."
+        cls <- readMVar (clients serverState)
+        mapM_ (\c -> sendServer (clientSocket c) SMRematchDeclined) cls
+        -- Nếu từ chối, reset lại game và giữ nguyên 1 player (cho phép player khác vào)
+        modifyMVar_ mstate $ \_ -> return initState
+        putStrLn "Rematch declined - waiting for new opponent."
       _ -> putStrLn $ "Unhandled client msg: " ++ show cm
 
   loop
@@ -228,12 +315,25 @@ recvLine sock = do
     Left _ -> return BS.empty
     Right bs -> return bs
 
+
+
 handleDisconnect :: Client -> ServerState -> IO ()
 handleDisconnect client s = do
+  -- Thử đóng socket an toàn, bắt mọi ngoại lệ
+  result <- try (NS.close (clientSocket client)) :: IO (Either SomeException ())
+  case result of
+    Left ex  -> putStrLn $ "Warning: failed to close socket for client "
+                        ++ show (clientId client)
+                        ++ ": " ++ show ex
+    Right _  -> return ()
+
+  -- Xóa client khỏi danh sách
   modifyMVar_ (clients s) $ \cs -> do
     let cs' = filter (\c -> clientId c /= clientId client) cs
     return cs'
+
   putStrLn $ "Client disconnected: " ++ show (clientId client)
+  
 
 startGame :: ServerState -> IO ()
 startGame s = do

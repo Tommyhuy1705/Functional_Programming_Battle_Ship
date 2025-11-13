@@ -10,6 +10,7 @@ module Game.State
   , setPlayerReady
   , hasPlacedAllShips
   , setWinner
+  , emptyBoard 
   , GamePhase(..)
   ) where
 
@@ -111,6 +112,8 @@ placeShipForPlayer gs player ship =
             then Just gs { p1 = newPlayerState }
             else Just gs { p2 = newPlayerState }
 
+
+
 -- | Đánh dấu người chơi đã sẵn sàng
 setPlayerReady :: GameState -> Int -> GameState
 setPlayerReady gs player =
@@ -127,3 +130,8 @@ hasPlacedAllShips gs player =
 -- | Đặt người thắng
 setWinner :: GameState -> Int -> GameState
 setWinner gs pid = gs { winner = Just pid, phase = GameOver }
+
+-- | Bàn cờ trống 10x10 (tương tự initBoard)
+emptyBoard :: Board
+emptyBoard = initBoard
+

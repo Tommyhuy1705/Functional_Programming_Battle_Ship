@@ -36,8 +36,10 @@ import Network.Message
 -- Misc
 import Data.IORef
 import System.Random (randomRIO)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, isNothing)
 import Data.Foldable (traverse_)
+
+
 
 --------------------------------------------------------------------------------
 -- Game environment (mở rộng với socket ref)
@@ -53,7 +55,14 @@ data GameEnv = GameEnv
   , playerIdRef   :: IORef (Maybe Int)        -- local player id assigned by server
   , sunkPositionsRef :: IORef [(Int, [T.Pos])] -- map owner -> sunk positions known to this client
   , targetMarksRef :: IORef [(Int, [((Int,Int), String)])] -- owner -> list of ((r,c), markType) for target grid (hit/miss/sunk)
+  , loginViewElem :: IORef (Maybe Element)    -- login view element
+  , shipsPlacedRef     :: IORef [S.Ship]           -- danh sách tàu đã đặt
+  , isPlacingRef       :: IORef Bool               -- đang ở chế độ đặt tàu
+  , currentShipTypeRef :: IORef T.ShipType         -- loại tàu đang chọn
+  , isHorizontalRef    :: IORef Bool               -- hướng đặt: True = ngang
+  , rematchBtn         :: Element                  -- nút “Rematch”
   }
+
 
 
 --------------------------------------------------------------------------------
@@ -74,53 +83,69 @@ main = do
 --------------------------------------------------------------------------------
 setup :: Window -> UI ()
 setup window = do
-    void $ return window # set UI.title "Battleship (Threepenny GUI)"
-    void $ UI.addStyleSheet window "style.css"
+  void $ return window # set UI.title "Battleship (Threepenny GUI)"
+  void $ UI.addStyleSheet window "style.css"
 
-    -- state
-    gsRef <- liftIO $ newIORef G.initState
-    usersRef <- liftIO $ newIORef ([] :: [(Int, String)])
-    sockR <- liftIO $ newIORef Nothing
+  -- State cơ bản
+  gsRef <- liftIO $ newIORef G.initState
+  usersRef <- liftIO $ newIORef []
+  sockR <- liftIO $ newIORef Nothing
+  p1CellsRef <- liftIO $ newIORef []
+  p2CellsRef <- liftIO $ newIORef []
+  gameViewElem <- liftIO $ newIORef Nothing
+  playerIdRef <- liftIO $ newIORef Nothing
+  sunkPositionsRef <- liftIO $ newIORef []
+  targetMarksRef <- liftIO $ newIORef []
+  loginViewElem <- liftIO $ newIORef Nothing
 
-    -- tạo các IORef cho view và cells
-    p1CellsRef <- liftIO $ newIORef ([] :: [[Element]])
-    p2CellsRef <- liftIO $ newIORef ([] :: [[Element]])
-    gameViewElem <- liftIO $ newIORef (Nothing :: Maybe Element)
-    playerIdRef <- liftIO $ newIORef (Nothing :: Maybe Int)
-    sunkPositionsRef <- liftIO $ newIORef ([] :: [(Int, [T.Pos])])
-    targetMarksRef <- liftIO $ newIORef ([] :: [(Int, [((Int,Int), String)])])
+  -- Các IORef liên quan tới việc đặt tàu
+  shipsPlacedRef <- liftIO $ newIORef []
+  isPlacingRef <- liftIO $ newIORef True
+  currentShipTypeRef <- liftIO $ newIORef T.Carrier
+  isHorizontalRef <- liftIO $ newIORef True
 
-    -- tạo environment hoàn chỉnh
-    let env = GameEnv
-          { appWindow     = window
-          , gameStateRef  = gsRef
-          , loggedInUsers = usersRef
-          , sockRef       = sockR
-          , p1CellsRef    = p1CellsRef
-          , p2CellsRef    = p2CellsRef
-          , gameViewElem  = gameViewElem
-          , playerIdRef   = playerIdRef
-          , sunkPositionsRef = sunkPositionsRef
-          , targetMarksRef = targetMarksRef
-          }
+  -- Tạo nút Rematch (ban đầu ẩn)
+  rematchBtn <- UI.button #+ [string "Rematch"]
+  void $ element rematchBtn # set style [("display", "none")]
 
-    -- tạo view
-    gameView <- createGameView env p1CellsRef p2CellsRef
-    liftIO $ writeIORef gameViewElem (Just gameView)
-    hideElement gameView
-    loginView <- createLoginView env gameView p1CellsRef p2CellsRef
+  -- ✅ Khởi tạo environment
+  let env = GameEnv
+        { appWindow          = window
+        , gameStateRef       = gsRef
+        , loggedInUsers      = usersRef
+        , sockRef            = sockR
+        , p1CellsRef         = p1CellsRef
+        , p2CellsRef         = p2CellsRef
+        , gameViewElem       = gameViewElem
+        , playerIdRef        = playerIdRef
+        , sunkPositionsRef   = sunkPositionsRef
+        , targetMarksRef     = targetMarksRef
+        , loginViewElem      = loginViewElem
+        , shipsPlacedRef     = shipsPlacedRef
+        , isPlacingRef       = isPlacingRef
+        , currentShipTypeRef = currentShipTypeRef
+        , isHorizontalRef    = isHorizontalRef
+        , rematchBtn         = rematchBtn
+        }
 
-    -- attach các view vào body
-    void $ getBody window #+ [element loginView, element gameView]
+  -- Tạo UI views
+  loginView <- createLoginView env p1CellsRef p2CellsRef
+  liftIO $ writeIORef loginViewElem (Just loginView)
+  gameView <- createGameView env p1CellsRef p2CellsRef
+  liftIO $ writeIORef gameViewElem (Just gameView)
+  hideElement gameView
 
-    -- kết nối đến server (background)
-    let host = "127.0.0.1"
-        port = "3000"
-    liftIO $ do
-      putStrLn $ "Attempting to connect to server " ++ host ++ ":" ++ port
-      -- start background connection attempt (ignore ThreadId)
-      void $ forkIO $ tryConnectAndListen env host port
-    return ()
+  -- Attach tất cả vào body
+  void $ getBody window #+ [element loginView, element gameView, element rematchBtn]
+
+  -- Kết nối đến server (background)
+  let host = "127.0.0.1"
+      port = "3000"
+  liftIO $ do
+    putStrLn $ "Attempting to connect to server " ++ host ++ ":" ++ port
+    void $ forkIO $ tryConnectAndListen env host port
+
+  return ()
 
 
 --------------------------------------------------------------------------------
@@ -137,14 +162,16 @@ tryConnectAndListen env host port = NS.withSocketsDo $ do
           -- start listener loop: nhận newline-delimited JSON messages
           forever $ do
             bs <- NSB.recv sock 4096
+            putStrLn $ "Network: received raw: " ++ show bs
             if BS.null bs
               then do
-                putStrLn "Network: server closed connection"
+                putStrLn "⚠️ Network: server closed connection."
                 writeIORef (sockRef env) Nothing
-                -- stop loop
-                threadDelay (1 * 1000000)
+                -- Dừng listener loop
+                putStrLn "Listener thread exiting."
+                return ()  -- <— thêm dòng này để thoát
               else do
-                let parts = filter (not . BS.null) $ BS.split 10 bs -- split on '\n'
+                let parts = filter (not . BS.null) $ BS.split 10 bs
                 forM_ parts $ \part -> case decode (BL.fromStrict part) :: Maybe ServerMsg of
                   Nothing -> putStrLn $ "Network: invalid server message: " ++ show part
                   Just sm -> handleServerMsgIO env sm
@@ -357,6 +384,37 @@ handleServerMsgIO env msg = case msg of
           p2Cells' <- liftIO $ readIORef (p2CellsRef env)
           gs' <- liftIO $ readIORef (gameStateRef env)
           void $ renderAllBoards env gv2 p1Cells' p2Cells' gs'
+    ---------------------------------------------------
+  -- 🔁 Rematch feature
+  ---------------------------------------------------
+  SMRematchRequested { fromPlayer = pid } -> do
+    putStrLn $ "Opponent Player " ++ show pid ++ " requested a rematch."
+    let wnd = appWindow env
+    void $ runUI wnd $ showRematchDialog env pid
+
+  SMRematchAccepted -> do
+      putStrLn "Rematch accepted by both players."
+      let wnd = appWindow env
+      void $ runUI wnd $ do
+        statusDiv <- getElementById wnd "status-msg"
+        maybe (return ()) (\st -> do
+          liftIO $ resetLocalPlacement env st  -- 👈 gọi reset ở đây
+          void $ element st # set text "Rematch accepted — place your ships!"
+                            # set UI.style [("color", "lime"), ("font-weight", "bold")]
+          ) statusDiv
+
+
+  SMRematchDeclined -> do
+    putStrLn "Opponent declined rematch."
+    let wnd = appWindow env
+    void $ runUI wnd $ do
+      statusDiv <- getElementById wnd "status-msg"
+      maybe (return ()) (\st -> liftIO $ resetLocalPlacement env st) statusDiv
+
+
+
+
+
 
   ---------------------------------------------------
   -- 🔄 Board update: server sent our updated board (we are the owner of that board)
@@ -437,6 +495,98 @@ handleServerMsgIO env msg = case msg of
   ---------------------------------------------------
   _ -> return ()
 
+-- Hiện hộp thoại hỏi người chơi có đồng ý rematch không
+showRematchDialog :: GameEnv -> Int -> UI ()
+showRematchDialog env fromPid = do
+  dlg <- UI.div #. "dialog" #+ [string $ "Player " ++ show fromPid ++ " wants a rematch!"]
+  yesBtn <- UI.button #+ [string "Accept"]
+  noBtn  <- UI.button #+ [string "Decline"]
+
+  on UI.click yesBtn $ \_ -> liftIO $ sendClientMsg env CMAcceptRematch
+  on UI.click noBtn  $ \_ -> liftIO $ sendClientMsg env CMDeclineRematch
+
+  void $ getBody (appWindow env) #+ [element dlg, element yesBtn, element noBtn]
+
+--------------------------------------------------------------------------------
+-- Reset local state để quay lại bước đặt tàu
+--------------------------------------------------------------------------------
+resetLocalPlacement :: GameEnv -> Element -> IO ()
+resetLocalPlacement env statusMsg = do
+    putStrLn "[DEBUG] Resetting local placement state after rematch."
+    writeIORef (shipsPlacedRef env) []
+    writeIORef (isPlacingRef env) True
+    writeIORef (currentShipTypeRef env) T.Carrier
+    writeIORef (isHorizontalRef env) True
+
+    -- Reset game state
+    gs <- readIORef (gameStateRef env)
+    let cleared = G.emptyBoard
+    let newGs = gs { G.p1 = (G.p1 gs){ G.board = cleared, G.ships = [], G.ready = False }
+                   , G.p2 = (G.p2 gs){ G.board = cleared, G.ships = [], G.ready = False }
+                   , G.phase = G.PlacingShips
+                   , G.winner = Nothing }
+    writeIORef (gameStateRef env) newGs
+
+    -- Đọc UI components
+    mGV <- readIORef (gameViewElem env)
+    pBoard <- readIORef (p1CellsRef env)
+    oBoard <- readIORef (p2CellsRef env)
+
+    case mGV of
+      Nothing -> putStrLn "[WARN] No game view element found."
+      Just gv -> do
+        let wnd = appWindow env
+        -- Tất cả UI actions phải nằm trong *một* runUI duy nhất
+        runUI wnd $ do
+          void $ element statusMsg
+            # set text "Rematch started - place your ships again!"
+            # set UI.style [("color", "orange")]
+
+          -- render lại board và rebind clicks
+          renderAllBoards env gv pBoard oBoard newGs
+          liftIO $ rebindPlacementClicks env
+
+
+placeShipAt :: GameEnv -> (Int, Int) -> T.ShipType -> Bool -> UI ()
+placeShipAt env (r,c) shipType isH = do
+    placed <- liftIO $ readIORef (shipsPlacedRef env)
+    if length placed >= 5
+      then return ()
+      else case S.placeShipPositions (r,c) isH shipType of
+        Nothing -> liftIO $ putStrLn " Out of bounds."
+        Just positions -> do
+          let overlaps = any (\s -> any (`elem` S.positions s) positions) placed
+          if overlaps
+            then liftIO $ putStrLn " Overlap detected."
+            else do
+              let sid = length placed + 1
+                  newShip = S.Ship sid shipType positions
+              gs <- liftIO $ readIORef (gameStateRef env)
+              mpid <- liftIO $ readIORef (playerIdRef env)
+              let pid = fromMaybe 1 mpid
+              case G.placeShipForPlayer gs pid newShip of
+                Nothing -> liftIO $ putStrLn " Cannot place ship (conflict)."
+                Just gs' -> liftIO $ do
+                  modifyIORef' (shipsPlacedRef env) (const (newShip:placed))
+                  writeIORef (gameStateRef env) gs'
+                  putStrLn $ "[OK] Placed " ++ show shipType ++ " at " ++ show (r,c)
+
+
+rebindPlacementClicks :: GameEnv -> IO ()
+rebindPlacementClicks env = do
+    putStrLn " Rebinding placement clicks..."
+    wnd <- pure (appWindow env)
+    p1Cells <- readIORef (p1CellsRef env)
+    let coords = [ (r, c, cell) | (r, row) <- zip [0..] p1Cells
+                                , (c, cell) <- zip [0..] row ]
+    runUI wnd $ do
+        forM_ coords $ \(r, c, cell) -> do
+            on UI.click cell $ \_ -> do
+                isPlacing <- liftIO $ readIORef (isPlacingRef env)
+                when isPlacing $ do
+                    shipType <- liftIO $ readIORef (currentShipTypeRef env)
+                    horiz <- liftIO $ readIORef (isHorizontalRef env)
+                    placeShipAt env (r, c) shipType horiz
 
 --------------------------------------------------------------------------------
 -- Gửi ClientMsg tới server (dùng sockRef trong GameEnv)
@@ -446,13 +596,16 @@ sendClientMsg env cm = do
     msock <- readIORef (sockRef env)
     case msock of
       Nothing -> putStrLn "Network: not connected, cannot send message"
-      Just sock -> NSB.sendAll sock (BL.toStrict (encode cm <> BL.pack "\n"))
+      Just sock -> do
+          let msgData = encode cm <> BL.singleton '\n'
+          putStrLn $ "Sending to server: " ++ show cm
+          NSB.sendAll sock (BL.toStrict msgData)
 
 --------------------------------------------------------------------------------
 -- UI: Login view
 --------------------------------------------------------------------------------
-createLoginView :: GameEnv -> Element -> IORef [[Element]] -> IORef [[Element]] -> UI Element
-createLoginView env gameView p1CellsRef p2CellsRef = do
+createLoginView :: GameEnv -> IORef [[Element]] -> IORef [[Element]] -> UI Element
+createLoginView env p1CellsRef p2CellsRef = do
     usernameInput <- UI.input
         # set UI.type_ "text"
         # set (UI.attr "placeholder") "Username"
@@ -491,11 +644,18 @@ createLoginView env gameView p1CellsRef p2CellsRef = do
                     liftIO $ addUserToEnv uid (Users.userName u)
                     void $ element status # set text ("Welcome " ++ Users.userName u)
                     hideElement loginDiv
-                    showElement gameView
+                    -- Lấy gameView từ env
+                    mGameView <- liftIO $ readIORef (gameViewElem env)
+                    case mGameView of
+                      Just gv -> showElement gv
+                      Nothing -> return ()
                     gs <- liftIO $ readIORef (gameStateRef env)
                     p1Cells <- liftIO $ readIORef p1CellsRef
                     p2Cells <- liftIO $ readIORef p2CellsRef
-                    void $ renderAllBoards env gameView p1Cells p2Cells gs
+                    mGameView <- liftIO $ readIORef (gameViewElem env)
+                    case mGameView of
+                      Just gv -> void $ renderAllBoards env gv p1Cells p2Cells gs
+                      Nothing -> return ()
 
     -- Login (note: this code still uses local Auth, not server-auth)
     on UI.click loginBtn $ \_ -> do
@@ -511,7 +671,11 @@ createLoginView env gameView p1CellsRef p2CellsRef = do
                 liftIO $ addUserToEnv uid name
                 void $ element status # set text ("Welcome " ++ name)
                 hideElement loginDiv
-                showElement gameView
+                -- Lấy gameView từ env
+                mGameView <- liftIO $ readIORef (gameViewElem env)
+                case mGameView of
+                  Just gv -> showElement gv
+                  Nothing -> return ()
                 liftIO $ do
                     msock <- readIORef (sockRef env)
                     case msock of
@@ -524,13 +688,17 @@ createLoginView env gameView p1CellsRef p2CellsRef = do
                 gs <- liftIO $ readIORef (gameStateRef env)
                 p1Cells <- liftIO $ readIORef p1CellsRef
                 p2Cells <- liftIO $ readIORef p2CellsRef
-                void $ renderAllBoards env gameView p1Cells p2Cells gs
+                mGameView <- liftIO $ readIORef (gameViewElem env)
+                case mGameView of
+                  Just gv -> void $ renderAllBoards env gv p1Cells p2Cells gs
+                  Nothing -> return ()
 
     return loginDiv
 
 --------------------------------------------------------------------------------
 -- UI: Game view (giữ logic cũ, nhưng gọi sendClientMsg khi cần)
 --------------------------------------------------------------------------------
+-- createGameView: (thay thế hàm hiện tại)
 createGameView :: GameEnv -> IORef [[Element]] -> IORef [[Element]] -> UI Element
 createGameView env p1CellsRef p2CellsRef = do
   (myBoardElem, myBoardCells) <- createBoard "my-board" "Your Fleet"
@@ -552,14 +720,27 @@ createGameView env p1CellsRef p2CellsRef = do
   readyBtn  <- UI.button #. "control-btn" # set text "Ready"
   quitBtn   <- UI.button #. "control-btn quit" # set UI.id_ "quit-btn" # set text "Quit"
 
-  -- give the status div an id so external threads (network listener) can find it via getElementById
   statusMsg <- UI.div # set UI.id_ "status-msg" #. "status-msg" # set text "Select a ship to place"
-
-  -- panel to show which enemy ships we've sunk
   sunkPanel <- UI.div # set UI.id_ "sunk-panel" #. "sunk-panel" # set text ""
 
-  -- hide Quit initially; it will be shown when the game is over
-  void $ hideElement quitBtn
+  -- tạo riêng từng nút trong dialog (Element trực tiếp)
+  rematchBtn <- UI.button #. "control-btn" # set UI.id_ "rematch-btn" # set text "Rematch"
+
+  logoutBtn  <- UI.button # set UI.id_ "logout-btn"  # set text "Logout"
+  cancelBtn  <- UI.button # set UI.id_ "cancel-btn"  # set text "Cancel"
+
+  quitDialog <- UI.div # set UI.id_ "quit-dialog" #. "quit-dialog" # set style [("display","none")] #+
+    [ UI.div #. "quit-dialog-content" #+
+        [ UI.h3 # set text "What would you like to do?"
+        , element rematchBtn
+        , element logoutBtn
+        , element cancelBtn
+        ]
+    ]
+
+  -- hide Quit initially; it will be shown when match ends (GameOver)
+  void $ element quitBtn # set style [("display","none")]
+
   controlPanel <- UI.div #. "control-panel" #+
     [ element shipSelection
     , element rotateBtn
@@ -568,6 +749,7 @@ createGameView env p1CellsRef p2CellsRef = do
     , element statusMsg
     , UI.h3 # set text "Sunk ships:"
     , element sunkPanel
+    , element quitDialog
     ]
 
   boardsElem <- UI.div #. "boards" #+
@@ -577,11 +759,14 @@ createGameView env p1CellsRef p2CellsRef = do
 
   gameDiv <- UI.div #. "game-container" #+ [ element boardsElem, element controlPanel ]
 
+  -- truyền trực tiếp elements của dialog buttons vào setupGameEvents
   setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
     carrierBtn battleshipBtn cruiserBtn submarineBtn destroyerBtn
     myBoardCells targetBoardCells p1CellsRef p2CellsRef
+    quitDialog rematchBtn logoutBtn cancelBtn
 
   return gameDiv
+
 
 --------------------------------------------------------------------------------
 -- Tạo board DOM
@@ -606,14 +791,17 @@ createBoard boardId title = do
 --------------------------------------------------------------------------------
 -- setupGameEvents: xử lý click/placing/ready/fire — gửi message cho server
 --------------------------------------------------------------------------------
+-- sửa chữ ký hàm: thêm 3 Element cuối (restartBtn, logoutBtn, cancelBtn)
 setupGameEvents :: GameEnv -> Element ->
                    Element -> Element -> Element -> Element ->
                    Element -> Element -> Element -> Element -> Element ->
                    [[Element]] -> [[Element]] ->
-                   IORef [[Element]] -> IORef [[Element]] -> UI ()
+                   IORef [[Element]] -> IORef [[Element]] ->
+                   Element -> Element -> Element -> Element -> UI ()
 setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
                 carrierBtn battleshipBtn cruiserBtn submarineBtn destroyerBtn
-                myBoardCells targetBoardCells p1CellsRef p2CellsRef = do
+                myBoardCells targetBoardCells p1CellsRef p2CellsRef
+                quitDialog rematchBtn logoutBtn cancelBtn = do
 
     currentShipTypeRef <- liftIO $ newIORef T.Carrier
     shipsPlacedRef     <- liftIO $ newIORef ([] :: [S.Ship])
@@ -621,8 +809,23 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
     isPlacingRef       <- liftIO $ newIORef True
 
     let setStatus txt = void $ element statusMsg # set text txt
+
+    -- helper render + update quit visibility
+    let renderAndUpdate = do
+          gs <- liftIO $ readIORef (gameStateRef env)
+          -- render boards
+          p1c <- liftIO $ readIORef p1CellsRef
+          p2c <- liftIO $ readIORef p2CellsRef
+          void $ renderAllBoards env gameDiv p1c p2c gs
+          -- show/hide quit button depending on phase
+          case G.phase gs of
+            G.GameOver -> void $ element quitBtn # set style [("display","block")]
+            _          -> void $ element quitBtn # set style [("display","none")]
+
+    -- initial status
     setStatus "Choose a ship to place, then click on your board."
 
+    -- ship selection handlers
     let mkShipBtn btn shipType = on UI.click btn $ \_ -> do
             liftIO $ writeIORef currentShipTypeRef shipType
             setStatus $ "Selected " ++ show shipType ++ ". Click on your board to place it."
@@ -637,8 +840,7 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
         isH <- liftIO $ readIORef isHorizontalRef
         setStatus $ "Orientation: " ++ (if isH then "Horizontal" else "Vertical")
 
-    -- placing on my board: gửi CMPlaceShip lên server (nếu kết nối),
-    -- nếu không có server, vẫn dùng placeShipForPlayer local
+    -- placing on my board
     forM_ [(r,c) | r <- [0..9], c <- [0..9]] $ \(r,c) -> do
         let cell = myBoardCells !! r !! c
         on UI.click cell $ \_ -> do
@@ -647,69 +849,53 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
               currentShipType <- liftIO $ readIORef currentShipTypeRef
               isH <- liftIO $ readIORef isHorizontalRef
               placed <- liftIO $ readIORef shipsPlacedRef
-
-              -- 1) Nếu đã đặt đủ 5 tàu thì chặn luôn
               if length placed >= 5
                 then setStatus "Bạn đã đặt đủ 5 tàu."
-                else do
-                  case S.placeShipPositions (r,c) isH currentShipType of
-                    Nothing -> setStatus "Cannot place ship here (out of bounds)."
-                    Just positions -> do
-                      let overlaps = any (\s -> any (`elem` S.positions s) positions) placed
-                      if overlaps
-                        then setStatus "Cannot place ship here (overlap)."
-                        else do
-                          let sid = length placed + 1
-                              newShip = S.Ship sid currentShipType positions
-                              newPlaced = newShip : placed
+                else case S.placeShipPositions (r,c) isH currentShipType of
+                  Nothing -> setStatus "Cannot place ship here (out of bounds)."
+                  Just positions -> do
+                    let overlaps = any (\s -> any (`elem` S.positions s) positions) placed
+                    if overlaps
+                      then setStatus "Cannot place ship here (overlap)."
+                      else do
+                        let sid = length placed + 1
+                            newShip = S.Ship sid currentShipType positions
+                            newPlaced = newShip : placed
+                        msock <- liftIO $ readIORef (sockRef env)
+                        case msock of
+                          Just _ -> do
+                            liftIO $ sendClientMsg env (CMPlaceShip sid (show currentShipType) (r,c) isH)
+                            mpid <- liftIO $ readIORef (playerIdRef env)
+                            case mpid of
+                              Nothing -> setStatus $ "Placed (request sent) " ++ show currentShipType ++ " at " ++ show (r,c) ++ ", awaiting server confirmation..."
+                              Just vid -> do
+                                gs <- liftIO $ readIORef (gameStateRef env)
+                                case G.placeShipForPlayer gs vid newShip of
+                                  Nothing -> setStatus "Local placement failed (conflict)."
+                                  Just gs' -> do
+                                    liftIO $ modifyIORef' shipsPlacedRef (const newPlaced)
+                                    liftIO $ writeIORef (gameStateRef env) gs'
+                                    setStatus $ "Placed (request sent) " ++ show currentShipType ++ " at " ++ show (r,c)
+                                    void renderAndUpdate
+                                    when (length newPlaced >= 5) $ do
+                                      liftIO $ writeIORef isPlacingRef False
+                                      setStatus "All ships placed — press Ready to start the game."
+                          Nothing -> do
+                            gs <- liftIO $ readIORef (gameStateRef env)
+                            mpid <- liftIO $ readIORef (playerIdRef env)
+                            let vid = fromMaybe 1 mpid
+                            case G.placeShipForPlayer gs vid newShip of
+                              Nothing -> setStatus "Failed to place ship into local game state (conflict)."
+                              Just gs' -> do
+                                liftIO $ writeIORef shipsPlacedRef newPlaced
+                                liftIO $ writeIORef (gameStateRef env) gs'
+                                setStatus $ "Placed " ++ show currentShipType
+                                void renderAndUpdate
+                                when (length newPlaced >= 5) $ do
+                                  liftIO $ writeIORef isPlacingRef False
+                                  setStatus "All ships placed — press Ready to start the game."
 
-                          msock <- liftIO $ readIORef (sockRef env)
-                          case msock of
-                            -- ONLINE: gửi yêu cầu lên server. Prefer optimistic local update
-                            -- only if server already assigned us a player id; otherwise
-                            -- wait for server confirmation (SMUpdateBoard) to avoid placing
-                            -- on the wrong board (was causing player 2 to show player 1's ships).
-                            Just _ -> do
-                              liftIO $ sendClientMsg env (CMPlaceShip sid (show currentShipType) (r,c) isH)
-                              mpid <- liftIO $ readIORef (playerIdRef env)
-                              case mpid of
-                                Nothing -> do
-                                  -- No assigned id yet; do not optimistic-local update.
-                                  setStatus $ "Placed (request sent) " ++ show currentShipType ++ " at " ++ show (r,c) ++ ", awaiting server confirmation..."
-                                Just vid -> do
-                                  -- optimistic local update so UI thấy result immediately
-                                  gs <- liftIO $ readIORef (gameStateRef env)
-                                  case G.placeShipForPlayer gs vid newShip of
-                                    Nothing -> setStatus "Local placement failed (conflict)."
-                                    Just gs' -> do
-                                      liftIO $ modifyIORef' shipsPlacedRef (const newPlaced)
-                                      liftIO $ writeIORef (gameStateRef env) gs'
-                                      void $ renderAllBoards env gameDiv myBoardCells targetBoardCells gs'
-                                      setStatus $ "Placed (request sent) " ++ show currentShipType ++ " at " ++ show (r,c)
-                                      -- nếu đã đủ 5, chặn tiếp
-                                      when (length newPlaced >= 5) $ do
-                                        liftIO $ writeIORef isPlacingRef False
-                                        setStatus "All ships placed — press Ready to start the game."
-
-                            -- OFFLINE: làm như cục bộ trước (như trước)
-                            Nothing -> do
-                              gs <- liftIO $ readIORef (gameStateRef env)
-                              -- offline viewer id defaults to Player 1
-                              mpid <- liftIO $ readIORef (playerIdRef env)
-                              let vid = fromMaybe 1 mpid
-                              case G.placeShipForPlayer gs vid newShip of
-                                Nothing -> setStatus "Failed to place ship into local game state (conflict)."
-                                Just gs' -> do
-                                  liftIO $ writeIORef shipsPlacedRef newPlaced
-                                  liftIO $ writeIORef (gameStateRef env) gs'
-                                  void $ renderAllBoards env gameDiv myBoardCells targetBoardCells gs'
-                                  setStatus $ "Placed " ++ show currentShipType
-                                  when (length newPlaced >= 5) $ do
-                                    liftIO $ writeIORef isPlacingRef False
-                                    setStatus "All ships placed — press Ready to start the game."
-
-
-    -- Ready: chỉ mark local ready or gửi CMReady nếu có server
+    -- Ready handler
     on UI.click readyBtn $ \_ -> do
         placed <- liftIO $ readIORef shipsPlacedRef
         if length placed < 5
@@ -721,7 +907,6 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
                 liftIO $ sendClientMsg env CMReady
                 setStatus "Ready sent to server. Waiting..."
               Nothing -> do
-                -- local: mark viewer ready (use assigned player id or default to 1)
                 gs0 <- liftIO $ readIORef (gameStateRef env)
                 mpid <- liftIO $ readIORef (playerIdRef env)
                 let vid = fromMaybe 1 mpid
@@ -729,67 +914,103 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
                 liftIO $ writeIORef (gameStateRef env) gsReady
                 liftIO $ writeIORef isPlacingRef False
                 setStatus "You are ready (local). Waiting for opponent..."
-                void $ renderAllBoards env gameDiv myBoardCells targetBoardCells gsReady
+                void renderAndUpdate
 
-    -- Quit button: send CMQuit (if connected) and reset local UI/state
+    ----------------------------------------------------------------------------
+    -- Quit button: show dialog
+    ----------------------------------------------------------------------------
     on UI.click quitBtn $ \_ -> do
-        msock <- liftIO $ readIORef (sockRef env)
-        case msock of
-          Just _ -> do
-            liftIO $ sendClientMsg env CMQuit
-            liftIO $ writeIORef (targetMarksRef env) []
-            liftIO $ writeIORef (sunkPositionsRef env) []
-            liftIO $ writeIORef (gameStateRef env) G.initState
-            setStatus "Quit sent. Resetting to placing ships..."
-            myCells <- liftIO $ readIORef p1CellsRef
-            tgtCells <- liftIO $ readIORef p2CellsRef
-            gs <- liftIO $ readIORef (gameStateRef env)
-            void $ renderAllBoards env gameDiv myCells tgtCells gs
-            -- hide quit button again after reset
-            void $ hideElement quitBtn
-          Nothing -> do
-            -- offline/local reset
-            liftIO $ writeIORef (targetMarksRef env) []
-            liftIO $ writeIORef (sunkPositionsRef env) []
-            liftIO $ writeIORef (gameStateRef env) G.initState
-            setStatus "Not connected. Local reset to placing ships."
-            myCells <- liftIO $ readIORef p1CellsRef
-            tgtCells <- liftIO $ readIORef p2CellsRef
-            gs <- liftIO $ readIORef (gameStateRef env)
-            void $ renderAllBoards env gameDiv myCells tgtCells gs
-            void $ hideElement quitBtn
+      -- show dialog element
+      void $ element quitDialog # set style [("display","block")]
+      return ()
 
-    -- Firing (target board): gửi CMFire nếu có server; nếu offline thì local applyFire
-    -- Firing (target board): gửi CMFire nếu có server; nếu offline thì local applyFire
+
+    ----------------------------------------------------------------------------
+    ----------------------------------------------------------------------------
+    -- Restart: reset toàn bộ ván chơi, quay lại màn hình đặt tàu
+    ----------------------------------------------------------------------------
+    -- Thay thế hoàn chỉnh handler Restart bằng đoạn này
+    on UI.click rematchBtn $ \_ -> do
+      -- all IO actions must be lifted into UI monad
+      liftIO $ putStrLn "UI: rematchBtn clicked - sending CMRequestRematch."
+
+      msock <- liftIO $ readIORef (sockRef env)   -- <-- sửa backtick + bọc liftIO
+      case msock of
+        Nothing -> do
+          liftIO $ putStrLn "UI: Cannot request rematch - no socket connection."
+          void $ element statusMsg # set text "Not connected to server. Please reconnect."
+        Just _  -> do
+          liftIO $ sendClientMsg env CMRequestRematch
+          liftIO $ putStrLn "UI: CMRequestRematch sent."
+          void $ element statusMsg # set text "Rematch requested. Waiting for opponent..."
+
+
+
+
+
+
+    -- Logout: clear per-session info and quay lại màn hình login
+    on UI.click logoutBtn $ \_ -> do
+      msock <- liftIO $ readIORef (sockRef env)
+      case msock of
+        Just _  -> liftIO $ sendClientMsg env CMQuit
+        Nothing -> return ()
+
+      -- Reset toàn bộ dữ liệu
+      liftIO $ do
+        writeIORef (targetMarksRef env) []
+        writeIORef (sunkPositionsRef env) []
+        writeIORef (playerIdRef env) Nothing
+        writeIORef (gameStateRef env) G.initState
+        writeIORef (sockRef env) Nothing
+
+      void $ hideElement quitDialog
+      void $ hideElement gameDiv
+      void $ hideElement quitBtn
+
+      mLoginElem <- liftIO $ readIORef (loginViewElem env)
+      case mLoginElem of
+        Just loginDiv -> do
+          void $ showElement loginDiv
+          -- reset lại nội dung input
+          mU <- getElementById (appWindow env) "username-input"
+          mP <- getElementById (appWindow env) "password-input"
+          mS <- getElementById (appWindow env) "login-status"
+          maybe (return ()) (\e -> void $ element e # set value "") mU
+          maybe (return ()) (\e -> void $ element e # set value "") mP
+          maybe (return ()) (\e -> void $ element e # set text "Please login.") mS
+        Nothing -> liftIO $ putStrLn "logout: loginViewElem missing"
+
+    -- Cancel: chỉ đóng dialog
+    on UI.click cancelBtn $ \_ -> do
+      void $ element quitDialog # set style [("display","none")]
+
+    ----------------------------------------------------------------------------
+    -- Firing (target board)
+    ----------------------------------------------------------------------------
     forM_ [(r,c) | r <- [0..9], c <- [0..9]] $ \(r,c) -> do
-        let tcell = targetBoardCells !! r !! c
-        on UI.click tcell $ \_ -> do
-            gs <- liftIO $ readIORef (gameStateRef env)
-            when (G.phase gs == G.Playing) $ do
-                msock <- liftIO $ readIORef (sockRef env)
-                case msock of
-                  Just _ -> do
-                    liftIO $ sendClientMsg env (CMFire (r,c))
-                    -- đánh dấu trên target grid (optimistic)
-                    void $ element tcell # set UI.class_ "cell target-fired"
-                    setStatus $ "Fired at " ++ show (r,c) ++ ", waiting for result..."
-                  Nothing -> do
-                    -- local apply
-                    let attacker = G.turn gs
-                        (gs', res) = G.applyFire gs attacker (r,c)
-                    liftIO $ writeIORef (gameStateRef env) gs'
-                    let msg = case res of
-                              L.ShotMiss -> "Miss"
-                              L.ShotHit  -> "Hit"
-                              L.ShotSunk _ -> "Sunk!"
-                    case res of
-                      L.ShotMiss -> void $ element tcell # set UI.class_ "cell target-miss"
-                      _          -> void $ element tcell # set UI.class_ "cell target-hit"
-                    setStatus $ "Fired at " ++ show (r,c) ++ ": " ++ msg
-                    void $ renderAllBoards env gameDiv myBoardCells targetBoardCells gs'
-
+      let tcell = targetBoardCells !! r !! c
+      on UI.click tcell $ \_ -> do
+        gs <- liftIO $ readIORef (gameStateRef env)
+        when (G.phase gs == G.Playing) $ do
+          msock <- liftIO $ readIORef (sockRef env)
+          case msock of
+            Just _ -> do
+              liftIO $ sendClientMsg env (CMFire (r,c))
+              void $ element tcell # set UI.class_ "cell target-fired"
+              setStatus $ "Fired at " ++ show (r,c) ++ ", waiting for result..."
+            Nothing -> do
+              let attacker = G.turn gs
+                  (gs', res) = G.applyFire gs attacker (r,c)
+              liftIO $ writeIORef (gameStateRef env) gs'
+              case res of
+                L.ShotMiss -> void $ element tcell # set UI.class_ "cell target-miss"
+                _          -> void $ element tcell # set UI.class_ "cell target-hit"
+              setStatus $ "Fired at " ++ show (r,c)
+              void renderAndUpdate
 
     return ()
+
 
 --------------------------------------------------------------------------------
 -- Render helpers (giữ nguyên logic của bạn)

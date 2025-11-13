@@ -25,7 +25,11 @@ data ClientMsg
   | CMFire { fireTarget :: Pos }
   | CMChat { clientChatText :: String }
   | CMQuit
+  | CMRequestRematch
+  | CMAcceptRematch
+  | CMDeclineRematch
   deriving (Show, Generic)
+
 
 instance ToJSON ClientMsg
 instance FromJSON ClientMsg
@@ -44,7 +48,11 @@ data ServerMsg
   | SMError { errorMsg :: String }
   | SMChat { fromPlayer :: Int, serverChatText :: String }
   | SMOpponentDisconnected
+  | SMRematchRequested { fromPlayer :: Int }
+  | SMRematchAccepted
+  | SMRematchDeclined
   deriving (Show, Generic)
+  
 
 instance ToJSON ServerMsg
 instance FromJSON ServerMsg
