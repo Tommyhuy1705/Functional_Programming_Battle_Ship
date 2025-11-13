@@ -46,12 +46,12 @@ getBinDir, getLibDir, getDynLibDir, getDataDir, getLibexecDir, getSysconfDir :: 
 
 
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
-bindir     = "D:\\CS\\lap_trinh_ham\\final2\\Functional_Programming_Battle_Ship\\.stack-work\\install\\4790e1d9\\bin"
-libdir     = "D:\\CS\\lap_trinh_ham\\final2\\Functional_Programming_Battle_Ship\\.stack-work\\install\\4790e1d9\\lib\\x86_64-windows-ghc-9.10.3-b42a\\battleship-0.1.0-2SKVJUxErMaJqzjmpMLYOS-battleship-server"
-dynlibdir  = "D:\\CS\\lap_trinh_ham\\final2\\Functional_Programming_Battle_Ship\\.stack-work\\install\\4790e1d9\\lib\\x86_64-windows-ghc-9.10.3-b42a"
-datadir    = "D:\\CS\\lap_trinh_ham\\final2\\Functional_Programming_Battle_Ship\\.stack-work\\install\\4790e1d9\\share\\x86_64-windows-ghc-9.10.3-b42a\\battleship-0.1.0"
-libexecdir = "D:\\CS\\lap_trinh_ham\\final2\\Functional_Programming_Battle_Ship\\.stack-work\\install\\4790e1d9\\libexec\\x86_64-windows-ghc-9.10.3-b42a\\battleship-0.1.0"
-sysconfdir = "D:\\CS\\lap_trinh_ham\\final2\\Functional_Programming_Battle_Ship\\.stack-work\\install\\4790e1d9\\etc"
+bindir     = "D:\\Study\\Project\\Functional_Programming_Battle_Ship\\.stack-work\\install\\87cd0910\\bin"
+libdir     = "D:\\Study\\Project\\Functional_Programming_Battle_Ship\\.stack-work\\install\\87cd0910\\lib\\x86_64-windows-ghc-9.10.3-b42a\\battleship-0.1.0-2SKVJUxErMaJqzjmpMLYOS-battleship-server"
+dynlibdir  = "D:\\Study\\Project\\Functional_Programming_Battle_Ship\\.stack-work\\install\\87cd0910\\lib\\x86_64-windows-ghc-9.10.3-b42a"
+datadir    = "D:\\Study\\Project\\Functional_Programming_Battle_Ship\\.stack-work\\install\\87cd0910\\share\\x86_64-windows-ghc-9.10.3-b42a\\battleship-0.1.0"
+libexecdir = "D:\\Study\\Project\\Functional_Programming_Battle_Ship\\.stack-work\\install\\87cd0910\\libexec\\x86_64-windows-ghc-9.10.3-b42a\\battleship-0.1.0"
+sysconfdir = "D:\\Study\\Project\\Functional_Programming_Battle_Ship\\.stack-work\\install\\87cd0910\\etc"
 
 getBinDir     = catchIO (getEnv "battleship_bindir")     (\_ -> return bindir)
 getLibDir     = catchIO (getEnv "battleship_libdir")     (\_ -> return libdir)

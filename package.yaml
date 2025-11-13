@@ -26,11 +26,11 @@ dependencies:
   - threepenny-gui
   - random
   - postgresql-simple
+  - random
   - cryptonite
   - base64-bytestring
   - directory
   - filepath
-  - dotenv
   - dotenv
 
 library:

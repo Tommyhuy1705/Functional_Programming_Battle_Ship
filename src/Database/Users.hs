@@ -18,7 +18,7 @@ import Crypto.Random (getRandomBytes)
 import System.Environment (lookupEnv)
 import Control.Exception (catch, SomeException)
 import Data.String (fromString)
-import Configuration.Dotenv (loadFile, defaultConfig)  -- ✅ Thêm dòng này để load .env
+import Configuration.Dotenv (loadFile, defaultConfig)
 
 --------------------------------------------------------------------------------
 -- User type
@@ -46,7 +46,7 @@ dkLen = 32
 
 getConn :: IO (Either String Connection)
 getConn = do
-  _ <- loadFile defaultConfig    -- ✅ Load biến môi trường từ .env trước
+  _ <- loadFile defaultConfig
   mUrl <- lookupEnv "DATABASE_URL"
   case mUrl of
     Just url -> do
