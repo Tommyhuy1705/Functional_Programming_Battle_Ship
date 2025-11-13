@@ -46,7 +46,7 @@ dkLen = 32
 
 getConn :: IO (Either String Connection)
 getConn = do
-  _ <- loadFile defaultConfig    -- ✅ Load biến môi trường từ .env trước
+  _ <- loadFile defaultConfig    
   mUrl <- lookupEnv "DATABASE_URL"
   case mUrl of
     Just url -> do

@@ -15,6 +15,7 @@ import Control.Exception (try, SomeException)
 -- Threepenny GUI
 import qualified Graphics.UI.Threepenny as UI
 import Graphics.UI.Threepenny.Core
+import System.Environment (getArgs)
 
 -- Networking
 import qualified Network.Socket as NS
@@ -25,7 +26,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Aeson (encode, decode)
 
--- Game modules (của bạn)
+-- Game modules 
 import qualified Game.State as G
 import qualified Game.Board as B
 import qualified Game.Types as T
@@ -68,16 +69,54 @@ data GameEnv = GameEnv
 --------------------------------------------------------------------------------
 -- Entry point
 --------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- 🧠 Lấy IP cục bộ (hoặc IP Radmin VPN)
+--------------------------------------------------------------------------------
+getLocalIP :: IO String
+getLocalIP = do
+    result <- try $ do
+        addrInfos <- NS.getAddrInfo Nothing (Just "26.90.240.135") Nothing
+        let addr = head addrInfos
+        return $ show (NS.addrAddress addr)
+    case result of
+        Right _ -> return "26.90.240.135"   -- ⚙️ IP cố định Radmin
+        Left (_ :: SomeException) -> return "127.0.0.1"
+
+--------------------------------------------------------------------------------
+-- 🧩 Main GUI
+--------------------------------------------------------------------------------
 main :: IO ()
 main = do
     putStrLn "Starting Battleship GUI..."
     putStrLn "Serving static from: app/gui/static (must contain style.css)"
+
+    args <- getArgs
+    let allowRemote = "--allow-remote-access" `elem` args
+
+    ip <- getLocalIP
     let config = defaultConfig
             { jsPort   = Just 8023
             , jsStatic = Just "app/gui/static"
             }
-    startGUI config setup
 
+    startGUI (if allowRemote 
+            then config { jsAddr = Just "0.0.0.0" }   -- cho phép mọi IP truy cập
+            else config) $ \window -> do
+
+        liftIO $ do
+            putStrLn ""
+            putStrLn "======================================================"
+            putStrLn "Battleship GUI is running!"
+            if allowRemote
+              then do
+                putStrLn "Share this link with your friend on Radmin VPN:"
+                putStrLn $ "http://" ++ ip ++ ":8023"
+              else do
+                putStrLn "Access locally at:"
+                putStrLn "http://127.0.0.1:8023"
+            putStrLn "======================================================"
+            putStrLn ""
+        setup window
 --------------------------------------------------------------------------------
 -- Setup: tạo UI, cố gắng kết nối server và start listener
 --------------------------------------------------------------------------------
@@ -138,12 +177,12 @@ setup window = do
   -- Attach tất cả vào body
   void $ getBody window #+ [element loginView, element gameView, element rematchBtn]
 
-  -- Kết nối đến server (background)
-  let host = "127.0.0.1"
-      port = "3000"
-  liftIO $ do
-    putStrLn $ "Attempting to connect to server " ++ host ++ ":" ++ port
-    void $ forkIO $ tryConnectAndListen env host port
+  -- -- Kết nối đến server (background)
+  -- let host = "26.90.240.135"
+  --     port = "3000"
+  -- liftIO $ do
+  --   putStrLn $ "Attempting to connect to server " ++ host ++ ":" ++ port
+  --   void $ forkIO $ tryConnectAndListen env host port
 
   return ()
 
@@ -165,7 +204,7 @@ tryConnectAndListen env host port = NS.withSocketsDo $ do
             putStrLn $ "Network: received raw: " ++ show bs
             if BS.null bs
               then do
-                putStrLn "⚠️ Network: server closed connection."
+                putStrLn "Network: server closed connection."
                 writeIORef (sockRef env) Nothing
                 -- Dừng listener loop
                 putStrLn "Listener thread exiting."
@@ -606,6 +645,13 @@ sendClientMsg env cm = do
 --------------------------------------------------------------------------------
 createLoginView :: GameEnv -> IORef [[Element]] -> IORef [[Element]] -> UI Element
 createLoginView env p1CellsRef p2CellsRef = do
+    -- Ô nhập IP
+    ipLabel <- UI.span #+ [string "Server IP: "]
+    ipInput <- UI.input # set UI.value "127.0.0.1"
+    connectBtn <- UI.button #+ [string "Connect to Server"]
+    connectStatus <- UI.span # set text "Not connected."
+
+    -- Ô username + password
     usernameInput <- UI.input
         # set UI.type_ "text"
         # set (UI.attr "placeholder") "Username"
@@ -618,17 +664,31 @@ createLoginView env p1CellsRef p2CellsRef = do
     signupBtn <- UI.button # set text "Sign up"
     status <- UI.div #. "login-status" # set text "Enter username and password."
 
+    -- 🔹 Tạo layout trước, rồi mới dùng trong event handler
     loginDiv <- UI.div #. "login-container" #+
         [ UI.h1 # set text "Battleship Game"
-        , UI.div #. "login-form" #+ [element usernameInput, element passwordInput]
-        , UI.div #. "login-form" #+ [element loginBtn, element signupBtn]
+        , UI.div #. "ip-connect" #+
+            [ element ipLabel, element ipInput, element connectBtn, element connectStatus ]
+        , UI.div #. "login-form" #+
+            [ element usernameInput, element passwordInput, element loginBtn, element signupBtn ]
         , element status
         ]
+
+    -- 🔹 Sau khi có loginDiv rồi, giờ mới đăng ký sự kiện click
+
+    -- Nút Connect
+    on UI.click connectBtn $ \_ -> do
+        host <- get value ipInput
+        liftIO $ do
+            putStrLn $ "Attempting to connect to server " ++ host ++ ":3000"
+            void $ forkIO $ tryConnectAndListen env host "3000"
+        element connectStatus # set text ("Connecting to " ++ host ++ "...")
 
     let addUserToEnv uid name =
           liftIO $ modifyIORef' (loggedInUsers env) $
               \us -> if any ((== uid) . fst) us then us else us ++ [(uid, name)]
 
+    -- Nút Sign up
     on UI.click signupBtn $ \_ -> do
         uname <- get value usernameInput
         pwd <- get value passwordInput
@@ -644,7 +704,6 @@ createLoginView env p1CellsRef p2CellsRef = do
                     liftIO $ addUserToEnv uid (Users.userName u)
                     void $ element status # set text ("Welcome " ++ Users.userName u)
                     hideElement loginDiv
-                    -- Lấy gameView từ env
                     mGameView <- liftIO $ readIORef (gameViewElem env)
                     case mGameView of
                       Just gv -> showElement gv
@@ -652,12 +711,11 @@ createLoginView env p1CellsRef p2CellsRef = do
                     gs <- liftIO $ readIORef (gameStateRef env)
                     p1Cells <- liftIO $ readIORef p1CellsRef
                     p2Cells <- liftIO $ readIORef p2CellsRef
-                    mGameView <- liftIO $ readIORef (gameViewElem env)
                     case mGameView of
                       Just gv -> void $ renderAllBoards env gv p1Cells p2Cells gs
                       Nothing -> return ()
 
-    -- Login (note: this code still uses local Auth, not server-auth)
+    -- Nút Login
     on UI.click loginBtn $ \_ -> do
         uname <- get value usernameInput
         pwd <- get value passwordInput
@@ -671,29 +729,20 @@ createLoginView env p1CellsRef p2CellsRef = do
                 liftIO $ addUserToEnv uid name
                 void $ element status # set text ("Welcome " ++ name)
                 hideElement loginDiv
-                -- Lấy gameView từ env
                 mGameView <- liftIO $ readIORef (gameViewElem env)
                 case mGameView of
                   Just gv -> showElement gv
                   Nothing -> return ()
-                liftIO $ do
-                    msock <- readIORef (sockRef env)
-                    case msock of
-                      Nothing -> do
-                        -- spawn background connection and ignore ThreadId
-                        void $ forkIO $ tryConnectAndListen env "127.0.0.1" "3000"
-                        return ()
-                      Just _ -> return ()  -- đã có kết nối, không cần tạo lại
-
                 gs <- liftIO $ readIORef (gameStateRef env)
                 p1Cells <- liftIO $ readIORef p1CellsRef
                 p2Cells <- liftIO $ readIORef p2CellsRef
-                mGameView <- liftIO $ readIORef (gameViewElem env)
                 case mGameView of
                   Just gv -> void $ renderAllBoards env gv p1Cells p2Cells gs
                   Nothing -> return ()
 
     return loginDiv
+
+
 
 --------------------------------------------------------------------------------
 -- UI: Game view (giữ logic cũ, nhưng gọi sendClientMsg khi cần)

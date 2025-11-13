@@ -1,0 +1,64 @@
+# Stack build artifacts
+.stack-work/
+*.o
+*.hi
+*.dyn_hi
+*.p_hi
+*.dyn_o
+*.p_o
+
+# Cabal build artifacts
+dist/
+dist-newstyle/
+cabal.project.local
+cabal.project.local~
+*.swp
+*~
+
+# IDE and editor files
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Dependencies
+node_modules/
+
+# OS files
+*.exe
+*.dll
+*.dylib
+*.so
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Haskell specific
+cabal.sandbox.config
+.cabal-sandbox/
+*.chi
+*.chs.h
+*.dyn_hi
+*.dyn_o
+.HTF/
+.ghc.environment.*
+ghc_*/
+
+# Database files (local SQLite, if used)
+*.db
+*.sqlite
+*.sqlite3

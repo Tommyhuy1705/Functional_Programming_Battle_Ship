@@ -9,8 +9,8 @@ version:        0.1.0
 description:    A networked Battleship game implementation in Haskell
 homepage:       https://github.com/Tommyhuy1705/Functional_Programming_Battle_Ship#readme
 bug-reports:    https://github.com/Tommyhuy1705/Functional_Programming_Battle_Ship/issues
-author:         Tommyhu`y1705
-maintainer:     your.email@example.com
+author:         Tran Viet Gia Huy, Ngo Chanh Phong
+maintainer:     giahuytranviet175@gmail.com, dannyphong2407@gmail.com
 copyright:      2025 Tommyhuy1705
 license:        BSD3
 license-file:   LICENSE
