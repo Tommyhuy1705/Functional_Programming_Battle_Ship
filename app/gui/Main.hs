@@ -70,18 +70,22 @@ data GameEnv = GameEnv
 -- Entry point
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- 🧠 Lấy IP cục bộ (hoặc IP Radmin VPN)
 --------------------------------------------------------------------------------
-getLocalIP :: IO String
-getLocalIP = do
-    result <- try $ do
+getRadminIP :: IO String
+getRadminIP = do
+    eres <- try $ NS.withSocketsDo $ do
         addrInfos <- NS.getAddrInfo Nothing (Just "26.17.201.201") Nothing
         let addr = head addrInfos
-        return $ show (NS.addrAddress addr)
-    case result of
-        Right _ -> return "26.17.201.201"
+        return (NS.addrAddress addr)
+    case eres of
         Left (_ :: SomeException) -> return "127.0.0.1"
+        Right _ -> return "26.17.201.201"
 
+--------------------------------------------------------------------------------
+-- 🧩 Main GUI
+--------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 -- 🧩 Main GUI
 --------------------------------------------------------------------------------
@@ -93,30 +97,33 @@ main = do
     args <- getArgs
     let allowRemote = "--allow-remote-access" `elem` args
 
-    ip <- getLocalIP
+    -- 🧠 Lấy IP Radmin
+    ip <- getRadminIP
+
+    -- ✅ In ra link share TRƯỚC khi GUI khởi động
+    putStrLn ""
+    putStrLn "======================================================"
+    putStrLn "Battleship GUI is running!"
+    if allowRemote then do
+        putStrLn "Share this link with your friend on Radmin VPN:"
+        putStrLn $ "http://" ++ ip ++ ":8023"
+      else do
+        putStrLn "Access locally at:"
+        putStrLn "http://127.0.0.1:8023"
+    putStrLn "======================================================"
+    putStrLn ""
+
+    -- ⚙️ Cấu hình GUI
     let config = defaultConfig
             { jsPort   = Just 8023
             , jsStatic = Just "app/gui/static"
+            , jsAddr   = if allowRemote then Just "0.0.0.0" else Nothing
             }
 
-    startGUI (if allowRemote 
-            then config { jsAddr = Just "0.0.0.0" }   -- cho phép mọi IP truy cập
-            else config) $ \window -> do
+    -- 🚀 Khởi động GUI
+    startGUI config setup
 
-        liftIO $ do
-            putStrLn ""
-            putStrLn "======================================================"
-            putStrLn "Battleship GUI is running!"
-            if allowRemote
-              then do
-                putStrLn "Share this link with your friend on Radmin VPN:"
-                putStrLn $ "http://" ++ ip ++ ":8023"
-              else do
-                putStrLn "Access locally at:"
-                putStrLn "http://127.0.0.1:8023"
-            putStrLn "======================================================"
-            putStrLn ""
-        setup window
+
 --------------------------------------------------------------------------------
 -- Setup: tạo UI, cố gắng kết nối server và start listener
 --------------------------------------------------------------------------------
@@ -147,7 +154,7 @@ setup window = do
   rematchBtn <- UI.button #+ [string "Rematch"]
   void $ element rematchBtn # set style [("display", "none")]
 
-  --  Khởi tạo environment
+  -- ✅ Khởi tạo environment
   let env = GameEnv
         { appWindow          = window
         , gameStateRef       = gsRef
@@ -449,6 +456,11 @@ handleServerMsgIO env msg = case msg of
     void $ runUI wnd $ do
       statusDiv <- getElementById wnd "status-msg"
       maybe (return ()) (\st -> liftIO $ resetLocalPlacement env st) statusDiv
+
+
+
+
+
 
   ---------------------------------------------------
   -- 🔄 Board update: server sent our updated board (we are the owner of that board)
