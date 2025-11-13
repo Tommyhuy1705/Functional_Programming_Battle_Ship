@@ -1,9 +1,9 @@
 ? C:\Users\LEGION\AppData\Local\Programs\stack\x86_64-windows\ghc-9.10.3\lib\x86_64-windows-ghc-9.10.3\rts-1.0.2\include\ghcversion.h
 : hash: 7038bb968ecc358729edd5d1e72a638409aaf5ea6ab13ce6ec7f253daa3b6529
 ? D:\Study\Project\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\battleship-client\autogen\Paths_battleship.hs
-: hash: 303a0a2f41fff383c6b7876990ab4bcbbd9f69b6c984cd2465c13aad9e28c12c
+: hash: 0d4c0f4722f1f80c530213c2d0e6dd067fe1c3c63817ce5ea6385ddcadc3de9d
 D:\Study\Project\Functional_Programming_Battle_Ship\.stack-work\dist\1a191874\build\battleship-client\autogen\cabal_macros.h:
-  hash: dbb54bcdd9cd3138a587c583950d720f14b51d416f8b05dc5b75862066d9b88d
+  hash: cdb1334ca8f2a1a6ff81fb55890c717bb529430a209d396c2e60363095bfe42c
 D:\Study\Project\Functional_Programming_Battle_Ship\LICENSE:
   hash: f0a845a6ab2ad9db21e4283401e11be8bca48c8816169a1119c93820ef4556da
 D:\Study\Project\Functional_Programming_Battle_Ship\README.md:
