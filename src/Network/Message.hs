@@ -20,7 +20,7 @@ instance ToJSON GamePhase
 instance FromJSON GamePhase
 
 data ClientMsg
-  = CMReady                    -- ready to start
+  = CMReady                    -- đã sẵn sàng bắt đầu
   | CMPlaceShip { psShipId :: Int, psType :: String, psPos :: Pos, psHoriz :: Bool }
   | CMFire { fireTarget :: Pos }
   | CMChat { clientChatText :: String }
@@ -41,8 +41,8 @@ data ServerMsg
   | SMBothReady
   | SMOpponentTurn
   | SMResult { res :: String, resTarget :: Pos, resOwner :: Int, resShipType :: Maybe String, resShipPositions :: Maybe [Pos] }
-    -- "Hit","Miss","Sunk" and which player's board was affected. If a ship
-    -- was sunk, resShipType contains the ship type name and resShipPositions the list of positions.
+    -- "Hit","Miss","Sunk" và bảng bị ảnh hưởng. Nếu tàu chìm,
+    -- resShipType chứa tên loại tàu, resShipPositions chứa danh sách vị trí.
   | SMUpdateBoard { board :: Board }
   | SMGameOver { winner :: Int }
   | SMError { errorMsg :: String }

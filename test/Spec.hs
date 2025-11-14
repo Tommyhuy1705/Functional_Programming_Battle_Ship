@@ -1,8 +1,7 @@
 module Main where
 
--- Some existing test modules define their own 'main'. To keep the
--- test runner simple we import those modules and invoke their mains
--- sequentially.
+-- Một số module test có main riêng. Để đơn giản, ta import các module đó
+-- và gọi các main theo thứ tự.
 
 import qualified GameLogicSpec
 import qualified NetworkSpec

@@ -77,16 +77,16 @@ runServer port = do
         putStrLn $ "Client connected as Player " ++ show cid
         let client = Client clientSock cid ("Player " ++ show cid)
 
-        -- Nếu Player này từng tồn tại, thay thế vào vị trí cũ
+        -- Thay thế client cũ nếu cùng id
         modifyMVar_ mclients $ \cs -> do
           let csFiltered = filter (\c -> clientId c /= cid) cs
           return $ csFiltered ++ [client]
 
-        -- Gửi thông báo welcome
+        -- Gắn handler cho client và xử lý ngắt kết nối
         _ <- forkIO $ finally (clientHandler client serverState)
                               (handleDisconnect client serverState)
 
-        -- Nếu sau khi thêm đủ 2 player thì bắt đầu lại game
+        -- Nếu đủ 2 player thì bắt đầu game
         newList <- readMVar mclients
         when (length newList == 2) $ do
           putStrLn "Both players connected/reconnected. Starting game..."

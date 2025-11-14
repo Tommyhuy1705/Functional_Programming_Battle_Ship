@@ -11,7 +11,7 @@ main :: IO ()
 main = hspec $ do
     describe "Game Logic" $ do
         it "should correctly process a miss" $ do
-            -- TODO: Add test cases
+            -- TODO: Thêm test case cho trường hợp trượt
             pendingWith "Test not implemented"
 
         it "should correctly process a hit" $ do

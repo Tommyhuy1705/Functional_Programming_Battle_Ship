@@ -15,11 +15,11 @@ import System.IO.Unsafe (unsafePerformIO)
 
 sessionRef = unsafePerformIO (newIORef Nothing)
 
--- Persist session to a small file so the user stays logged in between runs.
+-- Lưu session vào file nhỏ để giữ trạng thái đăng nhập giữa các lần chạy
 sessionFile :: FilePath
 sessionFile = "src/Database/.session"
 
--- Attempt to log in. Returns Right userId on success, Left error message otherwise.
+-- Thử đăng nhập: trả về Right userId nếu thành công, Left lỗi nếu thất bại
 login :: String -> String -> IO (Either String Int)
 login username password = do
   mUser <- findUserByName username
@@ -29,25 +29,27 @@ login username password = do
       ok <- verifyPassword u password
       if ok
         then do
-          -- persist session
+          -- lưu session
           createDirectoryIfMissing True "src/Database"
           writeFile sessionFile (show (userId u))
           return $ Right (userId u)
         else return $ Left "Invalid password"
 
+-- Đăng xuất: xoá file session nếu id trùng
 logout :: Int -> IO ()
 logout uid = do
   exists <- doesFileExist sessionFile
   whenExists <- return exists
   if whenExists
     then do
-      -- try to read and compare
+      -- đọc và so sánh
       content <- readFile sessionFile
       case reads content of
         ((n, _):_) | n == uid -> removeFile sessionFile
         _ -> return ()
     else return ()
 
+-- Lấy session hiện tại (nếu có)
 currentSession :: IO (Maybe Int)
 currentSession = do
   exists <- doesFileExist sessionFile

@@ -11,10 +11,11 @@ import Game.Board
 import Game.Ship
 import Data.List (find)
 
+
 data ShotResult = ShotMiss | ShotHit | ShotSunk Int -- ship id
   deriving (Eq, Show)
 
--- Place ship on board
+-- Đặt tàu lên board nếu không xung đột
 placeShipOnBoard :: Board -> Ship -> Maybe Board
 placeShipOnBoard b ship =
   if any conflict (positions ship)
@@ -24,14 +25,14 @@ placeShipOnBoard b ship =
     conflict p = case getCell b p of
                    Just Empty -> False
                    Nothing    -> True   -- Vượt biên
-                   Just _     -> True   -- Đè tàu hoặc đã bắn trúng
+                   Just _     -> True   -- Đè tàu hoặc ô đã đánh dấu
 
 
--- fireAt: returns updated board and result of the shot
+-- fireAt: trả về board đã cập nhật và kết quả phát bắn
 fireAt :: Board -> [Ship] -> Pos -> (Board, ShotResult)
 fireAt b ships pos =
   case getCell b pos of
-    Nothing -> (b, ShotMiss) -- out of the bounds
+    Nothing -> (b, ShotMiss) -- ngoài biên
     Just Empty -> (setCell b pos Miss, ShotMiss)
     Just Miss  -> (b, ShotMiss)
     Just Hit   -> (b, ShotHit)
@@ -45,7 +46,7 @@ fireAt b ships pos =
              then (b', ShotSunk sid)
              else (b', ShotHit)
 
--- allSunk: list of ships and board
+-- allSunk: kiểm tra tất cả tàu đã bị chìm chưa
 allSunk :: Board -> [Ship] -> Bool
 allSunk bd ships = all (shipSunk bd) ships
   where

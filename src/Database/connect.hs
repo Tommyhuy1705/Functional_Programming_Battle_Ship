@@ -22,7 +22,7 @@ loadEnvFile = do
   _ <- loadFile defaultConfig  -- Load biến môi trường từ .env (nếu có)
   return ()
 
--- | Helper to safely get environment variable (both lowercase & uppercase)
+-- | Lấy biến môi trường an toàn (hỗ trợ chữ thường và chữ hoa)
 getEnvVar :: String -> IO (Maybe String)
 getEnvVar key = do
   v1 <- lookupEnv key
@@ -30,10 +30,10 @@ getEnvVar key = do
   return (v1 <|> v2)
   where toUpper c = if c >= 'a' && c <= 'z' then toEnum (fromEnum c - 32) else c
 
--- | Build connection string automatically
+-- | Xây dựng chuỗi kết nối (tự động từ DATABASE_URL hoặc từng biến riêng)
 buildConnStr :: IO (Either String BSC.ByteString)
 buildConnStr = do
-  loadEnvFile  -- 👈 Gọi load dotenv trước
+  loadEnvFile  -- Gọi load dotenv trước
   mUrl <- lookupEnv "DATABASE_URL"
   case mUrl of
     Just url -> return $ Right (BSC.pack url)
@@ -53,9 +53,9 @@ buildConnStr = do
                 , "dbname=" ++ db
                 ]
           return $ Right (BSC.pack connStr)
-        _ -> return $ Left "❌ Missing required database environment variables."
+        _ -> return $ Left "Missing required database environment variables."
 
--- | Open a PostgreSQL connection
+-- | Mở kết nối PostgreSQL, trả về Right Connection hoặc Left lỗi
 getConnection :: IO (Either String Connection)
 getConnection = do
   connStrResult <- buildConnStr
@@ -64,10 +64,10 @@ getConnection = do
     Right connStr -> do
       result <- try (connectPostgreSQL connStr) :: IO (Either SomeException Connection)
       case result of
-        Left e -> return $ Left ("❌ Failed to connect: " ++ show e)
+        Left e -> return $ Left ("Failed to connect: " ++ show e)
         Right conn -> return $ Right conn
 
--- | Simple test function
+-- | Hàm test kết nối đơn giản (in kết quả hoặc lỗi)
 testConnection :: IO ()
 testConnection = do
   putStrLn "Attempting database connection..."
@@ -75,8 +75,8 @@ testConnection = do
   case result of
     Left err -> putStrLn err
     Right conn -> do
-      putStrLn "✅ Connection successful!"
+      putStrLn "Connection successful!"
       [Only now] <- query_ conn "SELECT NOW();" :: IO [Only String]
       putStrLn ("Current Time: " ++ now)
       close conn
-      putStrLn "🔒 Connection closed."
+      putStrLn "Connection closed."

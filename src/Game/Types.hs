@@ -8,7 +8,7 @@ type Row = Int    -- 0..(boardSize-1)
 type Col = Int
 type Pos = (Row, Col)
 
-data Cell = Empty | ShipPart Int -- ship id
+data Cell = Empty | ShipPart Int -- id tàu
   | Hit | Miss
   deriving (Eq, Show, Generic)
 
@@ -28,4 +28,4 @@ shipSize Cruiser    = 3
 shipSize Submarine  = 3
 shipSize Destroyer  = 2
 
-type Board = [[Cell]]  -- rows x cols
+type Board = [[Cell]]  -- hàng x cột
