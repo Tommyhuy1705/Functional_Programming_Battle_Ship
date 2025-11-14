@@ -1,4 +1,4 @@
-# Stack build artifacts
+# Stack build
 .stack-work/
 *.o
 *.hi
@@ -7,7 +7,7 @@
 *.dyn_o
 *.p_o
 
-# Cabal build artifacts
+# Cabal build
 dist/
 dist-newstyle/
 cabal.project.local
@@ -15,7 +15,7 @@ cabal.project.local~
 *.swp
 *~
 
-# IDE and editor files
+# IDE
 .vscode/
 .idea/
 *.iml
@@ -47,7 +47,7 @@ node_modules/
 *.temp
 *~
 
-# Haskell specific
+# Haskell
 cabal.sandbox.config
 .cabal-sandbox/
 *.chi
@@ -58,7 +58,7 @@ cabal.sandbox.config
 .ghc.environment.*
 ghc_*/
 
-# Database files (local SQLite, if used)
+# Database
 *.db
 *.sqlite
 *.sqlite3
