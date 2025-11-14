@@ -763,15 +763,19 @@ createGameView env p1CellsRef p2CellsRef = do
 createBoard :: String -> String -> UI (Element, [[Element]])
 createBoard boardId title = do
     rowsAndCells <- forM [0..9] $ \r -> do
-        cells <- forM [0..9] $ \c -> do
-            cell <- UI.td #. "cell" # set UI.id_ (boardId ++ "-" ++ show r ++ "-" ++ show c)
-            return cell
-        rowElem <- UI.tr #+ map element cells
-        return (rowElem, cells)
+      cells <- forM [0..9] $ \c -> do
+        cell <- UI.td #. "cell" # set UI.id_ (boardId ++ "-" ++ show r ++ "-" ++ show c)
+        return cell
+      rowElem <- UI.tr #+ map element cells
+      return (rowElem, cells)
     let rows = map fst rowsAndCells
         cellsMatrix = map snd rowsAndCells
     table <- UI.table #. "game-board" # set UI.id_ boardId #+ map element rows
-    container <- UI.div #. "board-container" #+
+    
+    -- Thêm ID vào container và set position: relative
+    container <- UI.div #. "board-container"
+                       # set UI.id_ (boardId ++ "-container") -- <--- DÒNG NÀY QUAN TRỌNG
+                       #+
         [ UI.h2 # set text title
         , element table
         ]
@@ -988,22 +992,84 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
 renderAllBoards :: GameEnv -> Element -> [[Element]] -> [[Element]] -> G.GameState -> UI ()
 renderAllBoards env _ myCells targetCells gs = do
     mpid <- liftIO $ readIORef (playerIdRef env)
+    let wnd = appWindow env
     case mpid of
       Nothing -> do
+        -- Nếu chưa có ID, render bảng rỗng
         let clearCells elems = forM_ (concat elems) $ \cell -> void $ element cell # set UI.class_ "cell"
         clearCells myCells
         clearCells targetCells
       Just viewer -> do
         let opponent = if viewer == 1 then 2 else 1
+        
+        -- Vẽ các ô (cell) như cũ (hit, miss, water)
         void $ renderBoardElems env myCells gs viewer
         void $ renderBoardElems env targetCells gs opponent
+
+        -- 2. Tìm container và gọi renderShips
+        -- Chúng ta chỉ vẽ SVG tàu của BẢN THÂN (viewer)
+        mMyBoardContainer <- getElementById wnd "my-board-container"
+        traverse_ (\container -> renderShips env container gs viewer "my-board" myCells) mMyBoardContainer
+
+-- Vẽ các tàu SVG lên trên bàn cờ
+renderShips :: GameEnv -> Element -> G.GameState -> Int -> String -> [[Element]] -> UI ()
+renderShips env boardContainer gs owner boardId cellMatrix = do
+    -- Kích thước 1 ô (cell) là 35px, theo file style.css
+    let cellSize = 35 :: Double 
+        -- Khoảng đệm (padding) 20px của .board-container
+        containerPadding = 20 :: Double 
+        -- Chiều cao tổng cộng của h2 title (estimate: khoảng 24px text + 10px margin = 34px)
+        headerHeight = 34 :: Double
+
+    -- Lấy danh sách tàu của người chơi (owner)
+    let pState = if owner == 1 then G.p1 gs else G.p2 gs
+        shipsToRender = G.ships pState
+
+    -- Vẽ tàu mới
+    forM_ shipsToRender $ \ship -> do
+        let (r, c) = head (S.positions ship)
+            len = T.shipSize (S.shipType ship)
+            
+            -- Suy luận hướng tàu từ 2 tọa độ đầu tiên
+            (r1, c1) = head (S.positions ship)
+            (r2, _c2) = (S.positions ship) !! 1
+            isHorizontal = r2 == r1
+
+        let (shipWidth, shipHeight) = if isHorizontal
+              then (fromIntegral len * cellSize, cellSize)
+              else (cellSize, fromIntegral len * cellSize)
+
+        let sid = S.shipId ship
+            shipElemId = "ship-" ++ show owner ++ "-" ++ show sid
+        -- Nếu đã có element tàu cũ cùng id thì xóa nó trước
+        mOld <- getElementById (appWindow env) shipElemId
+        maybe (return ()) delete mOld
+
+        let svgString = getShipSVG (S.shipType ship)
+
+        -- Tính toán vị trí: padding + header + (cell row/col * cellSize)
+        -- Các cell được sắp xếp trong bảng HTML, tính từ container padding
+        let topPos  = containerPadding + headerHeight + (fromIntegral r * cellSize)
+            leftPos = containerPadding + (fromIntegral c * cellSize)
+
+        -- Tạo element SVG và áp style
+        shipElement <- UI.div # set UI.id_ shipElemId #. "ship-svg" # set html svgString
+        void $ element shipElement # set style
+            [ ("position", "absolute")
+            , ("top", show topPos ++ "px")
+            , ("left", show leftPos ++ "px")
+            , ("width", show shipWidth ++ "px")
+            , ("height", show shipHeight ++ "px")
+            ]
+        
+        -- Thêm tàu vào container
+        void $ element boardContainer #+ [element shipElement]
 
 renderBoardElems :: GameEnv -> [[Element]] -> G.GameState -> Int -> UI ()
 renderBoardElems env elems gs owner = do
     let b = G.getPlayerBoard gs owner
     mpid <- liftIO $ readIORef (playerIdRef env)
     sunkMap <- liftIO $ readIORef (sunkPositionsRef env)
-    -- Quyết định xem đây là bảng của mình (hiện tàu) hay bảng đối thủ (ẩn tàu)
     let viewer = fromMaybe 1 mpid
         isMyFleet = owner == viewer
         isTargetGrid = owner /= viewer
@@ -1017,26 +1083,30 @@ renderBoardElems env elems gs owner = do
     forM_ (zip [0..] elems) $ \(r,row) ->
       forM_ (zip [0..] row) $ \(c,cell) -> do
       let mcell = B.getCell b (r,c)
-      -- Render các ô đã bắn (hit/miss/sunk) trên bảng mục tiêu
       tm <- liftIO $ readIORef (targetMarksRef env)
       let ownerTargets = maybe [] id (lookup owner tm)
       case lookup (r,c) ownerTargets of
         Just markType -> case markType of
-          "sunk" -> if isTargetGrid then void $ element cell # set UI.class_ "cell target-sunk" else void $ element cell # set UI.class_ "cell hit"
-          "hit"  -> if isTargetGrid then void $ element cell # set UI.class_ "cell target-hit" else void $ element cell # set UI.class_ "cell hit"
-          "miss" -> if isTargetGrid then void $ element cell # set UI.class_ "cell target-miss" else void $ element cell # set UI.class_ "cell miss"
+          "sunk" -> void $ element cell # set UI.class_ (if isTargetGrid then "cell target-sunk" else "cell hit")
+          "hit"  -> void $ element cell # set UI.class_ (if isTargetGrid then "cell target-hit" else "cell hit")
+          "miss" -> void $ element cell # set UI.class_ (if isTargetGrid then "cell target-miss" else "cell miss")
           _      -> void $ element cell # set UI.class_ "cell"
         Nothing -> do
-          -- Nếu vị trí này được biết là một phần của tàu đã bị đánh chìm cho chủ sở hữu này, đánh dấu là đã chìm
           if (r,c) `elem` ownerSunkPositions
             then if isTargetGrid
                    then void $ element cell # set UI.class_ "cell target-sunk"
                    else void $ element cell # set UI.class_ "cell hit"
             else case mcell of
               Just T.Empty -> void $ element cell # set UI.class_ "cell"
-              Just (T.ShipPart _) -> if isMyFleet then void $ element cell # set UI.class_ "cell ship" else void $ element cell # set UI.class_ "cell"
-              Just T.Hit -> if isMyFleet then void $ element cell # set UI.class_ "cell hit" else void $ element cell # set UI.class_ "cell target-hit"
-              Just T.Miss -> if isMyFleet then void $ element cell # set UI.class_ "cell miss" else void $ element cell # set UI.class_ "cell target-miss"
+              
+              -- === ĐÂY LÀ THAY ĐỔI QUAN TRỌNG ===
+              -- Không tô màu ".cell.ship" nữa, chỉ để là ".cell" (nước biển)
+              -- Vì SVG sẽ được vẽ đè lên trên.
+              Just (T.ShipPart _) -> void $ element cell # set UI.class_ "cell"
+              -- === KẾT THÚC THAY ĐỔI ===
+              
+              Just T.Hit -> void $ element cell # set UI.class_ (if isMyFleet then "cell hit" else "cell target-hit")
+              Just T.Miss -> void $ element cell # set UI.class_ (if isMyFleet then "cell miss" else "cell target-miss")
               _ -> void $ element cell # set UI.class_ "cell"
 
 
@@ -1058,6 +1128,35 @@ generateRandomShips = do
                 ship = S.Ship sid st poss
             go (occ ++ poss) sts (ship:acc)
     go [] types []
+
+-- Trả về chuỗi SVG cho từng loại tàu
+getShipSVG :: T.ShipType -> String
+getShipSVG T.Carrier =
+    "<svg viewBox=\"0 0 150 30\" xmlns=\"http://www.w3.org/2000/svg\">\
+    \  <rect x=\"0\" y=\"5\" width=\"150\" height=\"20\" rx=\"4\" ry=\"4\" fill=\"currentColor\"/>\
+    \  <rect x=\"100\" y=\"0\" width=\"30\" height=\"30\" rx=\"2\" ry=\"2\" fill=\"currentColor\"/>\
+    \</svg>"
+getShipSVG T.Battleship =
+    "<svg viewBox=\"0 0 120 30\" xmlns=\"http://www.w3.org/2000/svg\">\
+    \  <rect x=\"0\" y=\"5\" width=\"120\" height=\"20\" rx=\"4\" ry=\"4\" fill=\"currentColor\"/>\
+    \  <circle cx=\"30\" cy=\"15\" r=\"7\" fill=\"currentColor\" stroke=\"#334155\" stroke-width=\"2\"/>\
+    \  <circle cx=\"90\" cy=\"15\" r=\"7\" fill=\"currentColor\" stroke=\"#334155\" stroke-width=\"2\"/>\
+    \</svg>"
+getShipSVG T.Cruiser =
+    "<svg viewBox=\"0 0 90 30\" xmlns=\"http://www.w3.org/2000/svg\">\
+    \  <path d=\"M 0 15 L 10 8 L 80 8 L 90 15 L 80 22 L 10 22 Z\" fill=\"currentColor\"/>\
+    \  <rect x=\"35\" y=\"10\" width=\"20\" height=\"10\" rx=\"2\" ry=\"2\" fill=\"currentColor\" stroke=\"#334155\" stroke-width=\"1\"/>\
+    \</svg>"
+getShipSVG T.Submarine =
+    "<svg viewBox=\"0 0 90 30\" xmlns=\"http://www.w3.org/2000/svg\">\
+    \  <rect x=\"0\" y=\"7\" width=\"90\" height=\"16\" rx=\"8\" ry=\"8\" fill=\"currentColor\"/>\
+    \  <rect x=\"35\" y=\"2\" width=\"20\" height=\"26\" rx=\"3\" ry=\"3\" fill=\"currentColor\"/>\
+    \</svg>"
+getShipSVG T.Destroyer =
+    "<svg viewBox=\"0 0 60 30\" xmlns=\"http://www.w3.org/2000/svg\">\
+    \  <path d=\"M 0 15 L 10 10 L 50 10 L 60 15 L 50 20 L 10 20 Z\" fill=\"currentColor\"/>\
+    \</svg>"
+
 
 -- Ẩn/hiện element
 hideElement, showElement :: Element -> UI ()

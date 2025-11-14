@@ -69,6 +69,7 @@ body {
 
 /* ====== BOARD ====== */
 .board-container {
+    position: relative;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     padding: 20px;
@@ -81,7 +82,8 @@ body {
 
 .game-board {
     border-collapse: collapse;
-    margin: 0 auto;
+    margin: 0;
+    display: block;
 }
 
 .cell {
@@ -280,4 +282,23 @@ body {
 .quit-dialog-content button:last-of-type:hover {
     background-color: #6b7284;
     transform: scale(1.05);
+}
+
+.ship-svg {
+    position: absolute;
+    /* Rất quan trọng: cho phép click "xuyên qua" hình ảnh SVG
+       để các ô <td> bên dưới vẫn nhận được sự kiện 'click' */
+    pointer-events: none; 
+    z-index: 10; /* Đảm bảo tàu nổi lên trên các ô */
+
+    /* Màu mặc định cho tàu, bạn có thể đổi */
+    color: #0077b6; 
+    /* Giúp bo góc mượt hơn khi xoay */
+    border-radius: 4px;
+}
+
+.ship-svg svg {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
