@@ -12,12 +12,12 @@ import qualified Database.Auth as Auth
 
 import Control.Exception (try, SomeException)
 
--- Threepenny GUI
+-- Thư viện GUI chính
 import qualified Graphics.UI.Threepenny as UI
 import Graphics.UI.Threepenny.Core
 import System.Environment (getArgs)
 
--- Networking
+-- Thư viện Mạng (TCP Sockets)
 import qualified Network.Socket as NS
 import qualified Network.Socket.ByteString as NSB
 import Control.Concurrent (forkIO, threadDelay)
@@ -26,53 +26,42 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import Data.Aeson (encode, decode)
 
--- Game modules 
+-- Các module Game 
 import qualified Game.State as G
 import qualified Game.Board as B
 import qualified Game.Types as T
 import qualified Game.Ship as S
 import qualified Game.Logic as L
-import Network.Message
 
--- Misc
+-- Tiện ích khác
+import Network.Message
 import Data.IORef
 import System.Random (randomRIO)
 import Data.Maybe (fromMaybe, listToMaybe, isNothing)
 import Data.Foldable (traverse_)
 
 
-
---------------------------------------------------------------------------------
--- Game environment (mở rộng với socket ref)
---------------------------------------------------------------------------------
+-- Môi trường chạy GUI
 data GameEnv = GameEnv
-  { appWindow     :: Window
-  , gameStateRef  :: IORef G.GameState
+  { appWindow     :: Window                                 -- Cửa sổ trình duyệt
+  , gameStateRef  :: IORef G.GameState                      -- Trạng thái game được chia sẻ
   , loggedInUsers :: IORef [(Int, String)]
-  , sockRef       :: IORef (Maybe NS.Socket)
-  , p1CellsRef    :: IORef [[Element]]        -- thêm
-  , p2CellsRef    :: IORef [[Element]]        -- thêm
-  , gameViewElem  :: IORef (Maybe Element)    -- thêm
-  , playerIdRef   :: IORef (Maybe Int)        -- local player id assigned by server
-  , sunkPositionsRef :: IORef [(Int, [T.Pos])] -- map owner -> sunk positions known to this client
-  , targetMarksRef :: IORef [(Int, [((Int,Int), String)])] -- owner -> list of ((r,c), markType) for target grid (hit/miss/sunk)
-  , loginViewElem :: IORef (Maybe Element)    -- login view element
-  , shipsPlacedRef     :: IORef [S.Ship]           -- danh sách tàu đã đặt
-  , isPlacingRef       :: IORef Bool               -- đang ở chế độ đặt tàu
-  , currentShipTypeRef :: IORef T.ShipType         -- loại tàu đang chọn
-  , isHorizontalRef    :: IORef Bool               -- hướng đặt: True = ngang
-  , rematchBtn         :: Element                  -- nút “Rematch”
+  , sockRef       :: IORef (Maybe NS.Socket)                -- Socket kết nối server
+  , p1CellsRef    :: IORef [[Element]]                      -- Ma trận ô của bảng người chơi 1
+  , p2CellsRef    :: IORef [[Element]]                      -- Ma trận ô của bảng người chơi 2
+  , gameViewElem  :: IORef (Maybe Element)                  -- Tham chiếu view game chính
+  , playerIdRef   :: IORef (Maybe Int)                      -- ID được server cấp
+  , sunkPositionsRef :: IORef [(Int, [T.Pos])]              -- Vị trí tàu đã chìm để render
+  , targetMarksRef :: IORef [(Int, [((Int,Int), String)])]  -- Ghi lại 'hit'/'miss' trên target grid
+  , loginViewElem :: IORef (Maybe Element)                  -- Tham chiếu view Login
+  , shipsPlacedRef     :: IORef [S.Ship]                    -- Tàu đã đặt
+  , isPlacingRef       :: IORef Bool                        -- Đang ở chế độ đặt tàu?
+  , currentShipTypeRef :: IORef T.ShipType                  -- Loại tàu đang chọn
+  , isHorizontalRef    :: IORef Bool                        -- Hướng đặt: True = ngang
+  , rematchBtn         :: Element                           -- Nút Rematch
   }
 
-
-
---------------------------------------------------------------------------------
--- Entry point
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
--- 🧠 Lấy IP cục bộ (hoặc IP Radmin VPN)
---------------------------------------------------------------------------------
+-- Lấy IP Radmin VPN
 getRadminIP :: IO String
 getRadminIP = do
     eres <- try $ NS.withSocketsDo $ do
@@ -83,24 +72,18 @@ getRadminIP = do
         Left (_ :: SomeException) -> return "127.0.0.1"
         Right _ -> return "26.17.201.201"
 
---------------------------------------------------------------------------------
--- 🧩 Main GUI
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
--- 🧩 Main GUI
---------------------------------------------------------------------------------
+-- Entry point chính của ứng dụng GUI
 main :: IO ()
 main = do
     putStrLn "Starting Battleship GUI..."
-    putStrLn "Serving static from: app/gui/static (must contain style.css)"
+    putStrLn "Serving static from: app/gui/static"
 
     args <- getArgs
     let allowRemote = "--allow-remote-access" `elem` args
 
-    -- 🧠 Lấy IP Radmin
+    -- Lấy IP
     ip <- getRadminIP
 
-    -- ✅ In ra link share TRƯỚC khi GUI khởi động
     putStrLn ""
     putStrLn "======================================================"
     putStrLn "Battleship GUI is running!"
@@ -113,26 +96,22 @@ main = do
     putStrLn "======================================================"
     putStrLn ""
 
-    -- ⚙️ Cấu hình GUI
+    -- Cấu hình Threepenny
     let config = defaultConfig
             { jsPort   = Just 8023
             , jsStatic = Just "app/gui/static"
             , jsAddr   = if allowRemote then Just "0.0.0.0" else Nothing
             }
 
-    -- 🚀 Khởi động GUI
+    -- Khởi động GUI
     startGUI config setup
 
-
---------------------------------------------------------------------------------
--- Setup: tạo UI, cố gắng kết nối server và start listener
---------------------------------------------------------------------------------
 setup :: Window -> UI ()
 setup window = do
   void $ return window # set UI.title "Battleship (Threepenny GUI)"
   void $ UI.addStyleSheet window "style.css"
 
-  -- State cơ bản
+  -- State
   gsRef <- liftIO $ newIORef G.initState
   usersRef <- liftIO $ newIORef []
   sockR <- liftIO $ newIORef Nothing
@@ -144,17 +123,16 @@ setup window = do
   targetMarksRef <- liftIO $ newIORef []
   loginViewElem <- liftIO $ newIORef Nothing
 
-  -- Các IORef liên quan tới việc đặt tàu
   shipsPlacedRef <- liftIO $ newIORef []
   isPlacingRef <- liftIO $ newIORef True
   currentShipTypeRef <- liftIO $ newIORef T.Carrier
   isHorizontalRef <- liftIO $ newIORef True
 
-  -- Tạo nút Rematch (ban đầu ẩn)
+  -- Rematch Button
   rematchBtn <- UI.button #+ [string "Rematch"]
   void $ element rematchBtn # set style [("display", "none")]
 
-  -- ✅ Khởi tạo environment
+  -- Environment
   let env = GameEnv
         { appWindow          = window
         , gameStateRef       = gsRef
@@ -184,19 +162,9 @@ setup window = do
   -- Attach tất cả vào body
   void $ getBody window #+ [element loginView, element gameView, element rematchBtn]
 
-  -- -- Kết nối đến server (background)
-  -- let host = "26.90.240.135"
-  --     port = "3000"
-  -- liftIO $ do
-  --   putStrLn $ "Attempting to connect to server " ++ host ++ ":" ++ port
-  --   void $ forkIO $ tryConnectAndListen env host port
-
   return ()
 
-
---------------------------------------------------------------------------------
--- Kết nối tới server và listener loop
---------------------------------------------------------------------------------
+-- Kết nối
 tryConnectAndListen :: GameEnv -> String -> String -> IO ()
 tryConnectAndListen env host port = NS.withSocketsDo $ do
     eres <- tryConnect host port
@@ -205,24 +173,25 @@ tryConnectAndListen env host port = NS.withSocketsDo $ do
       Right sock -> do
           putStrLn "Network: connected to server"
           writeIORef (sockRef env) (Just sock)
-          -- start listener loop: nhận newline-delimited JSON messages
+
+          -- Bắt đầu vòng lặp lắng nghe từ server
           forever $ do
             bs <- NSB.recv sock 4096
             putStrLn $ "Network: received raw: " ++ show bs
             if BS.null bs
               then do
+                -- Nếu server đóng kết nối, thoát vòng lặp
                 putStrLn "Network: server closed connection."
                 writeIORef (sockRef env) Nothing
-                -- Dừng listener loop
                 putStrLn "Listener thread exiting."
-                return ()  -- <— thêm dòng này để thoát
+                return ()
               else do
                 let parts = filter (not . BS.null) $ BS.split 10 bs
                 forM_ parts $ \part -> case decode (BL.fromStrict part) :: Maybe ServerMsg of
                   Nothing -> putStrLn $ "Network: invalid server message: " ++ show part
                   Just sm -> handleServerMsgIO env sm
 
--- Try connect, return Left errorStr or Right sock
+-- Thử kết nối TCP, trả về Lỗi hoặc Socket
 tryConnect :: String -> String -> IO (Either String NS.Socket)
 tryConnect host port = do
     eres <- try $ do
@@ -234,16 +203,12 @@ tryConnect host port = do
       Left (e :: SomeException) -> return $ Left (show e)
       Right sock -> return $ Right sock
 
---------------------------------------------------------------------------------
--- Xử lý ServerMsg (được chạy trong IO thread)
--- Chúng ta cần cập nhật gameStateRef và sau đó yêu cầu UI re-render
---------------------------------------------------------------------------------
+-- Xử lý ServerMsg
+-- Cập nhật gameStateRef và yêu cầu UI re-render
 handleServerMsgIO :: GameEnv -> ServerMsg -> IO ()
 handleServerMsgIO env msg = case msg of
 
-  ---------------------------------------------------
-  -- ⚙️ Game phase (Waiting, Placing, Playing, ...)
-  ---------------------------------------------------
+  -- [Game Phase] Server thay đổi giai đoạn game
   SMGamePhase { smPhase = ph } -> do
     modifyIORef' (gameStateRef env) $ \gs -> gs { G.phase = ph }
     let wnd = appWindow env
@@ -257,6 +222,7 @@ handleServerMsgIO env msg = case msg of
           p2Cells <- liftIO $ readIORef (p2CellsRef env)
           renderAllBoards env gv p1Cells p2Cells gs
 
+          -- Cập nhật dòng trạng thái trên UI
           statusDiv <- getElementById wnd "status-msg"
           case statusDiv of
             Nothing -> return ()
@@ -277,9 +243,7 @@ handleServerMsgIO env msg = case msg of
                   void $ element st # set text "Game Over!"
                 _ -> return ()
 
-  ---------------------------------------------------
-  -- 🧭 Lượt chơi
-  ---------------------------------------------------
+  -- [Your Turn] Server thông báo đến lượt của client này
   SMYourTurn -> do
     let wnd = appWindow env
     void $ runUI wnd $ do
@@ -288,7 +252,8 @@ handleServerMsgIO env msg = case msg of
         void $ element st # set text " Your turn!"
                           # set UI.style [("color", "lime"), ("font-weight", "bold")]
         ) statusDiv
-
+  
+  -- [Opponent Turn] Server thông báo đến lượt của đối thủ
   SMOpponentTurn -> do
     let wnd = appWindow env
     void $ runUI wnd $ do
@@ -298,9 +263,7 @@ handleServerMsgIO env msg = case msg of
                           # set UI.style [("color", "gray"), ("font-weight", "normal")]
         ) statusDiv
 
-  ---------------------------------------------------
-  -- 🎯 Kết quả bắn
-  ---------------------------------------------------
+  -- [Fire Result]
   SMResult { res = r, resTarget = (x, y), resOwner = owner, resShipType = mShipType, resShipPositions = mShipPositions } -> do
     putStrLn $ "Server: fire result at (" ++ show x ++ "," ++ show y ++ "): " ++ r ++ " (owner=" ++ show owner ++ ")"
     let lower = map toLower r
@@ -325,10 +288,10 @@ handleServerMsgIO env msg = case msg of
 
       when valid $ do
         let cell = (cellsToMark !! x) !! y
-        -- if server provided explicit sunk positions, mark them all as sunk and remember them
+        -- Nếu tàu bị chìm, server sẽ trả về toàn bộ vị trí của tàu đó
         case mShipPositions of
           Just poses -> do
-            -- record sunk positions in client-side map
+            -- Lưu lại các vị trí chìm để render cho đúng (màu đỏ sẫm)
             liftIO $ do
               lst0 <- readIORef (sunkPositionsRef env)
               let existing = maybe [] id (lookup owner lst0)
@@ -336,7 +299,7 @@ handleServerMsgIO env msg = case msg of
                   others = filter ((/= owner) . fst) lst0
               writeIORef (sunkPositionsRef env) ((owner, newList) : others)
 
-            -- mark each sunk pos in the appropriate grid
+            -- Đánh dấu tất cả các ô chìm trên UI
             forM_ poses $ \(rx,cy) -> do
               let (cellsForPos, isTargetForPos) = case mpid of
                         Just pid -> if owner == pid then (p1Cells, False) else (p2Cells, True)
@@ -356,8 +319,9 @@ handleServerMsgIO env msg = case msg of
                   others = filter ((/= owner) . fst) lst0
               writeIORef (targetMarksRef env) ((owner, newMarks) : others)
 
-          Nothing -> return ()
+          Nothing -> return () -- Nếu không phải chìm, chỉ là Hit hoặc Miss
 
+        -- Chỉ là 'Hit'
         when isHit  $ do
           void $ element cell # set UI.class_ (if isTarget then "cell target-hit" else "cell hit")
           -- persist the hit in target marks when this is a target grid (avoid duplicates)
@@ -368,6 +332,8 @@ handleServerMsgIO env msg = case msg of
                 newMarks = if any ((== (x,y)) . fst) existing then existing else existing ++ [newEntry]
                 others = filter ((/= owner) . fst) lst0
             writeIORef (targetMarksRef env) ((owner, newMarks) : others)
+        
+        -- Chỉ là 'Miss'
         when isMiss $ do
           void $ element cell # set UI.class_ (if isTarget then "cell target-miss" else "cell miss")
           when isTarget $ liftIO $ do
@@ -377,24 +343,23 @@ handleServerMsgIO env msg = case msg of
                 newMarks = if any ((== (x,y)) . fst) existing then existing else existing ++ [newEntry]
                 others = filter ((/= owner) . fst) lst0
             writeIORef (targetMarksRef env) ((owner, newMarks) : others)
-        -- if server did not provide explicit sunk positions, fall back to marking this cell
+        
         when (isSunk && mShipPositions == Nothing) $ do
           void $ element cell # set UI.class_ (if isTarget then "cell target-sunk" else "cell target-sunk")
           when isTarget $ liftIO $ do
             lst0 <- readIORef (targetMarksRef env)
             let existing = maybe [] id (lookup owner lst0)
-                -- replace any existing entry for this pos with a sunk mark
                 filtered = filter ((/= (x,y)) . fst) existing
                 newMarks = filtered ++ [((x,y), "sunk")]
                 others = filter ((/= owner) . fst) lst0
             writeIORef (targetMarksRef env) ((owner, newMarks) : others)
 
-      -- If a ship was sunk and the server provided its type, add it to the sunk panel
+      -- Hiện panel thông báo tàu đã chìm
       when isSunk $ case mShipType of
         Just stype -> do
           mpid2 <- liftIO $ readIORef (playerIdRef env)
           let viewer = fromMaybe 1 mpid2
-          -- owner is the player whose ship was hit; if owner /= viewer then we've sunk opponent's ship
+          -- Chỉ hiển thị panel chìm nếu người xem không phải là chủ tàu
           when (owner /= viewer) $ do
             sp <- getElementById wnd "sunk-panel"
             case sp of
@@ -414,7 +379,7 @@ handleServerMsgIO env msg = case msg of
           else if isSunk then " Sunk!"
           else " " ++ r)
         ) statusDiv
-      -- Debug: print current persisted target marks and sunk positions
+      
       liftIO $ do
         tm <- readIORef (targetMarksRef env)
         spm <- readIORef (sunkPositionsRef env)
@@ -430,14 +395,14 @@ handleServerMsgIO env msg = case msg of
           p2Cells' <- liftIO $ readIORef (p2CellsRef env)
           gs' <- liftIO $ readIORef (gameStateRef env)
           void $ renderAllBoards env gv2 p1Cells' p2Cells' gs'
-    ---------------------------------------------------
-  -- 🔁 Rematch feature
-  ---------------------------------------------------
+  
+  -- [SỰ KIỆN] Đối thủ yêu cầu chơi lại
   SMRematchRequested { fromPlayer = pid } -> do
     putStrLn $ "Opponent Player " ++ show pid ++ " requested a rematch."
     let wnd = appWindow env
     void $ runUI wnd $ showRematchDialog env pid
-
+  
+  -- [SỰ KIỆN] Cả hai đã đồng ý chơi lại
   SMRematchAccepted -> do
       putStrLn "Rematch accepted by both players."
       let wnd = appWindow env
@@ -457,16 +422,8 @@ handleServerMsgIO env msg = case msg of
       statusDiv <- getElementById wnd "status-msg"
       maybe (return ()) (\st -> liftIO $ resetLocalPlacement env st) statusDiv
 
-
-
-
-
-
-  ---------------------------------------------------
-  -- 🔄 Board update: server sent our updated board (we are the owner of that board)
-  ---------------------------------------------------
+  -- Server gửi bản cập nhật bàn cờ
   SMUpdateBoard { board = b } -> do
-    -- Update the local gameStateRef for our assigned player and re-render
     mpid <- readIORef (playerIdRef env)
     case mpid of
       Nothing -> return ()
@@ -486,15 +443,12 @@ handleServerMsgIO env msg = case msg of
               p2Cells <- liftIO $ readIORef (p2CellsRef env)
               void $ renderAllBoards env gv p1Cells p2Cells gs'
 
-  ---------------------------------------------------
-  -- 🏁 Kết thúc trận
-  ---------------------------------------------------
+  -- Trò chơi kết thúc
   SMGameOver { winner = w } -> do
-    -- Update local game state to GameOver (so client blocks further firing)
     modifyIORef' (gameStateRef env) $ \gs -> G.setWinner gs w
     let wnd = appWindow env
     void $ runUI wnd $ do
-      -- re-render boards to reflect final state
+      -- Render lại lần cuối
       mGV <- liftIO $ readIORef (gameViewElem env)
       case mGV of
         Nothing -> return ()
@@ -510,13 +464,11 @@ handleServerMsgIO env msg = case msg of
                           # set UI.style [("color", "orange"), ("font-weight", "bold")]
         ) statusDiv
 
-      -- Show the Quit button now that the game is over
+      -- Hiển thị nút "Quit"
       mQuit <- getElementById wnd "quit-btn"
       maybe (return ()) (\qb -> void $ showElement qb) mQuit
 
-  ---------------------------------------------------
-  -- Welcome: server assigns player id/name when connecting
-  ---------------------------------------------------
+  -- Client kết nối thành công, server cấp ID
   SMWelcome { playerId = pid, playerName = name } -> do
     putStrLn $ "Server: welcome player " ++ show pid ++ " (" ++ name ++ ")"
     writeIORef (playerIdRef env) (Just pid)
@@ -525,8 +477,7 @@ handleServerMsgIO env msg = case msg of
       statusDiv <- getElementById wnd "status-msg"
       maybe (return ()) (\st -> void $ element st # set text ("Connected as " ++ name ++ " (Player " ++ show pid ++ ")")) statusDiv
 
-      -- After receiving the welcome and storing our player id, re-render
-      -- boards so "Your Fleet" correctly shows the viewer's own ships.
+      -- Render lại bàn cờ để gán đúng "Your Fleet"
       mGV <- liftIO $ readIORef (gameViewElem env)
       case mGV of
         Nothing -> return ()
@@ -535,13 +486,9 @@ handleServerMsgIO env msg = case msg of
           p1Cells <- liftIO $ readIORef (p1CellsRef env)
           p2Cells <- liftIO $ readIORef (p2CellsRef env)
           void $ renderAllBoards env gv p1Cells p2Cells gs
-
-  ---------------------------------------------------
-  -- Tin nhắn khác (bỏ qua hoặc debug)
-  ---------------------------------------------------
   _ -> return ()
 
--- Hiện hộp thoại hỏi người chơi có đồng ý rematch không
+-- Hiện hộp thoại hỏi rematch
 showRematchDialog :: GameEnv -> Int -> UI ()
 showRematchDialog env fromPid = do
   dlg <- UI.div #. "dialog" #+ [string $ "Player " ++ show fromPid ++ " wants a rematch!"]
@@ -553,9 +500,7 @@ showRematchDialog env fromPid = do
 
   void $ getBody (appWindow env) #+ [element dlg, element yesBtn, element noBtn]
 
---------------------------------------------------------------------------------
--- Reset local state để quay lại bước đặt tàu
---------------------------------------------------------------------------------
+-- Reset lại trạng thái GUI về giai đoạn đặt tàu (sau khi rematch)
 resetLocalPlacement :: GameEnv -> Element -> IO ()
 resetLocalPlacement env statusMsg = do
     putStrLn "[DEBUG] Resetting local placement state after rematch."
@@ -582,7 +527,6 @@ resetLocalPlacement env statusMsg = do
       Nothing -> putStrLn "[WARN] No game view element found."
       Just gv -> do
         let wnd = appWindow env
-        -- Tất cả UI actions phải nằm trong *một* runUI duy nhất
         runUI wnd $ do
           void $ element statusMsg
             # set text "Rematch started - place your ships again!"
@@ -634,9 +578,7 @@ rebindPlacementClicks env = do
                     horiz <- liftIO $ readIORef (isHorizontalRef env)
                     placeShipAt env (r, c) shipType horiz
 
---------------------------------------------------------------------------------
--- Gửi ClientMsg tới server (dùng sockRef trong GameEnv)
---------------------------------------------------------------------------------
+-- Gửi một tin nhắn (ClientMsg) đã được mã hóa JSON tới Server
 sendClientMsg :: GameEnv -> ClientMsg -> IO ()
 sendClientMsg env cm = do
     msock <- readIORef (sockRef env)
@@ -647,9 +589,7 @@ sendClientMsg env cm = do
           putStrLn $ "Sending to server: " ++ show cm
           NSB.sendAll sock (BL.toStrict msgData)
 
---------------------------------------------------------------------------------
--- UI: Login view
---------------------------------------------------------------------------------
+-- Tạo giao diện Đăng nhập / Đăng ký
 createLoginView :: GameEnv -> IORef [[Element]] -> IORef [[Element]] -> UI Element
 createLoginView env p1CellsRef p2CellsRef = do
     -- Ô nhập IP
@@ -671,7 +611,7 @@ createLoginView env p1CellsRef p2CellsRef = do
     signupBtn <- UI.button # set text "Sign up"
     status <- UI.div #. "login-status" # set text "Enter username and password."
 
-    -- 🔹 Tạo layout trước, rồi mới dùng trong event handler
+
     loginDiv <- UI.div #. "login-container" #+
         [ UI.h1 # set text "Battleship Game"
         , UI.div #. "ip-connect" #+
@@ -680,8 +620,6 @@ createLoginView env p1CellsRef p2CellsRef = do
             [ element usernameInput, element passwordInput, element loginBtn, element signupBtn ]
         , element status
         ]
-
-    -- 🔹 Sau khi có loginDiv rồi, giờ mới đăng ký sự kiện click
 
     -- Nút Connect
     on UI.click connectBtn $ \_ -> do
@@ -751,10 +689,7 @@ createLoginView env p1CellsRef p2CellsRef = do
 
 
 
---------------------------------------------------------------------------------
--- UI: Game view (giữ logic cũ, nhưng gọi sendClientMsg khi cần)
---------------------------------------------------------------------------------
--- createGameView: (thay thế hàm hiện tại)
+-- Tạo giao diện chính của trò chơi (2 bàn cờ, các nút điều khiển)
 createGameView :: GameEnv -> IORef [[Element]] -> IORef [[Element]] -> UI Element
 createGameView env p1CellsRef p2CellsRef = do
   (myBoardElem, myBoardCells) <- createBoard "my-board" "Your Fleet"
@@ -779,7 +714,7 @@ createGameView env p1CellsRef p2CellsRef = do
   statusMsg <- UI.div # set UI.id_ "status-msg" #. "status-msg" # set text "Select a ship to place"
   sunkPanel <- UI.div # set UI.id_ "sunk-panel" #. "sunk-panel" # set text ""
 
-  -- tạo riêng từng nút trong dialog (Element trực tiếp)
+  -- Các nút trong dialog Quit/Rematch
   rematchBtn <- UI.button #. "control-btn" # set UI.id_ "rematch-btn" # set text "Rematch"
 
   logoutBtn  <- UI.button # set UI.id_ "logout-btn"  # set text "Logout"
@@ -794,7 +729,7 @@ createGameView env p1CellsRef p2CellsRef = do
         ]
     ]
 
-  -- hide Quit initially; it will be shown when match ends (GameOver)
+  -- ban đầu ẩn nút Quit
   void $ element quitBtn # set style [("display","none")]
 
   controlPanel <- UI.div #. "control-panel" #+
@@ -824,9 +759,7 @@ createGameView env p1CellsRef p2CellsRef = do
   return gameDiv
 
 
---------------------------------------------------------------------------------
--- Tạo board DOM
---------------------------------------------------------------------------------
+-- Tạo DOM cho một bàn cờ 10x10
 createBoard :: String -> String -> UI (Element, [[Element]])
 createBoard boardId title = do
     rowsAndCells <- forM [0..9] $ \r -> do
@@ -844,10 +777,7 @@ createBoard boardId title = do
         ]
     return (container, cellsMatrix)
 
---------------------------------------------------------------------------------
--- setupGameEvents: xử lý click/placing/ready/fire — gửi message cho server
---------------------------------------------------------------------------------
--- sửa chữ ký hàm: thêm 3 Element cuối (restartBtn, logoutBtn, cancelBtn)
+-- Hàm chính: Gắn các trình xử lý sự kiện (event handlers) cho tất cả các nút và ô cờ
 setupGameEvents :: GameEnv -> Element ->
                    Element -> Element -> Element -> Element ->
                    Element -> Element -> Element -> Element -> Element ->
@@ -866,7 +796,7 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
 
     let setStatus txt = void $ element statusMsg # set text txt
 
-    -- helper render + update quit visibility
+    -- Render lại cả 2 bàn cờ và cập nhật trạng thái nút Quit
     let renderAndUpdate = do
           gs <- liftIO $ readIORef (gameStateRef env)
           -- render boards
@@ -881,7 +811,7 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
     -- initial status
     setStatus "Choose a ship to place, then click on your board."
 
-    -- ship selection handlers
+    -- Gắn sự kiện cho 5 nút chọn tàu (Carrier, Battleship, Cruiser, Submarine, Destroyer)
     let mkShipBtn btn shipType = on UI.click btn $ \_ -> do
             liftIO $ writeIORef currentShipTypeRef shipType
             setStatus $ "Selected " ++ show shipType ++ ". Click on your board to place it."
@@ -951,7 +881,7 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
                                   liftIO $ writeIORef isPlacingRef False
                                   setStatus "All ships placed — press Ready to start the game."
 
-    -- Ready handler
+    -- Gắn sự kiện cho nút "Ready"
     on UI.click readyBtn $ \_ -> do
         placed <- liftIO $ readIORef shipsPlacedRef
         if length placed < 5
@@ -972,20 +902,13 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
                 setStatus "You are ready (local). Waiting for opponent..."
                 void renderAndUpdate
 
-    ----------------------------------------------------------------------------
-    -- Quit button: show dialog
-    ----------------------------------------------------------------------------
+    -- Gắn sự kiện cho nút "Quit"
     on UI.click quitBtn $ \_ -> do
-      -- show dialog element
       void $ element quitDialog # set style [("display","block")]
       return ()
 
 
-    ----------------------------------------------------------------------------
-    ----------------------------------------------------------------------------
-    -- Restart: reset toàn bộ ván chơi, quay lại màn hình đặt tàu
-    ----------------------------------------------------------------------------
-    -- Thay thế hoàn chỉnh handler Restart bằng đoạn này
+    -- Gắn sự kiện cho nút "Rematch"
     on UI.click rematchBtn $ \_ -> do
       -- all IO actions must be lifted into UI monad
       liftIO $ putStrLn "UI: rematchBtn clicked - sending CMRequestRematch."
@@ -1000,12 +923,7 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
           liftIO $ putStrLn "UI: CMRequestRematch sent."
           void $ element statusMsg # set text "Rematch requested. Waiting for opponent..."
 
-
-
-
-
-
-    -- Logout: clear per-session info and quay lại màn hình login
+    -- Gắn sự kiện cho nút "Logout"
     on UI.click logoutBtn $ \_ -> do
       msock <- liftIO $ readIORef (sockRef env)
       case msock of
@@ -1041,9 +959,7 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
     on UI.click cancelBtn $ \_ -> do
       void $ element quitDialog # set style [("display","none")]
 
-    ----------------------------------------------------------------------------
-    -- Firing (target board)
-    ----------------------------------------------------------------------------
+    -- Gắn sự kiện click cho TẤT CẢ các ô trên "Target Grid"
     forM_ [(r,c) | r <- [0..9], c <- [0..9]] $ \(r,c) -> do
       let tcell = targetBoardCells !! r !! c
       on UI.click tcell $ \_ -> do
@@ -1068,19 +984,12 @@ setupGameEvents env gameDiv rotateBtn readyBtn quitBtn statusMsg
     return ()
 
 
---------------------------------------------------------------------------------
--- Render helpers (giữ nguyên logic của bạn)
---------------------------------------------------------------------------------
+-- Hàm chính để vẽ lại cả 2 bàn cờ dựa trên GameState
 renderAllBoards :: GameEnv -> Element -> [[Element]] -> [[Element]] -> G.GameState -> UI ()
 renderAllBoards env _ myCells targetCells gs = do
-    -- If the server hasn't yet assigned a player id (SMWelcome), avoid
-    -- assuming the viewer is Player 1. In that case render both boards
-    -- as empty placeholders. Once SMWelcome arrives the handler will
-    -- re-render with the correct viewer id.
     mpid <- liftIO $ readIORef (playerIdRef env)
     case mpid of
       Nothing -> do
-        -- clear both grids so no ships are shown until we know our id
         let clearCells elems = forM_ (concat elems) $ \cell -> void $ element cell # set UI.class_ "cell"
         clearCells myCells
         clearCells targetCells
@@ -1094,12 +1003,12 @@ renderBoardElems env elems gs owner = do
     let b = G.getPlayerBoard gs owner
     mpid <- liftIO $ readIORef (playerIdRef env)
     sunkMap <- liftIO $ readIORef (sunkPositionsRef env)
-    let viewer = fromMaybe 1 mpid  -- default to Player 1 if not assigned
-        isMyFleet = owner == viewer  -- this is my fleet board
-        isTargetGrid = owner /= viewer  -- this is opponent's board (my target)
+    -- Quyết định xem đây là bảng của mình (hiện tàu) hay bảng đối thủ (ẩn tàu)
+    let viewer = fromMaybe 1 mpid
+        isMyFleet = owner == viewer
+        isTargetGrid = owner /= viewer
         ownerSunkPositions = maybe [] id (lookup owner sunkMap)
 
-    -- Debug: show persisted marks when rendering (helps trace disappearing marks)
     liftIO $ do
       tm <- readIORef (targetMarksRef env)
       let ownerTargetsCount = length (maybe [] id (lookup owner tm))
@@ -1108,7 +1017,7 @@ renderBoardElems env elems gs owner = do
     forM_ (zip [0..] elems) $ \(r,row) ->
       forM_ (zip [0..] row) $ \(c,cell) -> do
       let mcell = B.getCell b (r,c)
-      -- Check persisted target marks first (so attacker preserves marks even if board lacks info)
+      -- Render các ô đã bắn (hit/miss/sunk) trên bảng mục tiêu
       tm <- liftIO $ readIORef (targetMarksRef env)
       let ownerTargets = maybe [] id (lookup owner tm)
       case lookup (r,c) ownerTargets of
@@ -1118,7 +1027,7 @@ renderBoardElems env elems gs owner = do
           "miss" -> if isTargetGrid then void $ element cell # set UI.class_ "cell target-miss" else void $ element cell # set UI.class_ "cell miss"
           _      -> void $ element cell # set UI.class_ "cell"
         Nothing -> do
-          -- If this position is known to be part of a sunk ship for this owner, mark as sunk
+          -- Nếu vị trí này được biết là một phần của tàu đã bị đánh chìm cho chủ sở hữu này, đánh dấu là đã chìm
           if (r,c) `elem` ownerSunkPositions
             then if isTargetGrid
                    then void $ element cell # set UI.class_ "cell target-sunk"
@@ -1131,9 +1040,7 @@ renderBoardElems env elems gs owner = do
               _ -> void $ element cell # set UI.class_ "cell"
 
 
---------------------------------------------------------------------------------
--- Random ships (unchanged)
---------------------------------------------------------------------------------
+-- Tạm thời bỏ qua (dùng cho debug/offline)
 generateRandomShips :: IO [S.Ship]
 generateRandomShips = do
     let types = [T.Carrier, T.Battleship, T.Cruiser, T.Submarine, T.Destroyer]
@@ -1152,9 +1059,7 @@ generateRandomShips = do
             go (occ ++ poss) sts (ship:acc)
     go [] types []
 
---------------------------------------------------------------------------------
--- Small helpers
---------------------------------------------------------------------------------
+-- Ẩn/hiện element
 hideElement, showElement :: Element -> UI ()
 hideElement e = void $ element e # set style [("display", "none")]
 showElement e = void $ element e # set style [("display", "block")]

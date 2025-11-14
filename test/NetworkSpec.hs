@@ -10,7 +10,7 @@ main :: IO ()
 main = hspec $ do
     describe "Network Protocol" $ do
         it "should correctly serialize and deserialize messages" $ do
-            -- TODO: Add test cases
+            -- TODO: Thêm test case cho mã hóa/giải mã tin nhắn
             pendingWith "Test not implemented"
 
         it "should handle client connections properly" $ do

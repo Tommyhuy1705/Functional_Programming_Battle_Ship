@@ -13,7 +13,7 @@ import Data.Char (toLower, toUpper)
 import Network.Message
 
 --------------------------------------------------------------------------------
--- Main entry point
+-- Điểm vào chính của client
 --------------------------------------------------------------------------------
 runClient :: String -> String -> IO ()
 runClient host port = NS.withSocketsDo $ do
@@ -22,14 +22,14 @@ runClient host port = NS.withSocketsDo $ do
   NS.connect sock (NS.addrAddress addr)
   putStrLn "Connected to server."
 
-  -- Spawn a listener thread to handle messages from server
+  -- Tạo luồng listener xử lý tin từ server
   _ <- forkIO $ receiverLoop sock
 
   -- Enter interactive loop
   clientLoop sock
 
 --------------------------------------------------------------------------------
--- Listen to server messages continuously
+-- Lắng nghe tin từ server liên tục
 --------------------------------------------------------------------------------
 receiverLoop :: NS.Socket -> IO ()
 receiverLoop sock = forever $ do
@@ -44,7 +44,7 @@ receiverLoop sock = forever $ do
       mapM_ handleServerMsg parts
 
 --------------------------------------------------------------------------------
--- CLI command loop
+-- Vòng lặp CLI: nhận lệnh từ người dùng và gửi tới server
 --------------------------------------------------------------------------------
 clientLoop :: NS.Socket -> IO ()
 clientLoop sock = do
@@ -88,7 +88,7 @@ clientLoop sock = do
     _ -> putStrLn "Unknown command" >> clientLoop sock
 
 --------------------------------------------------------------------------------
--- Handle messages from server
+-- Xử lý các ServerMsg nhận được
 --------------------------------------------------------------------------------
 handleServerMsg :: BS.ByteString -> IO ()
 handleServerMsg bs
@@ -131,7 +131,7 @@ handleServerMsg bs
           _ -> putStrLn $ "[Unhandled] " ++ show sm
 
 --------------------------------------------------------------------------------
--- Helper to send client message
+-- Hàm trợ giúp: gửi `ClientMsg` đã mã hóa JSON tới server
 --------------------------------------------------------------------------------
 sendMsg :: NS.Socket -> ClientMsg -> IO ()
 sendMsg sock msg = do

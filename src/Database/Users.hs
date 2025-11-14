@@ -21,19 +21,19 @@ import Data.String (fromString)
 import Configuration.Dotenv (loadFile, defaultConfig)
 
 --------------------------------------------------------------------------------
--- User type
+-- Kiểu dữ liệu User
 
 data User = User
   { userId   :: Int
   , userName :: String
-  , userHash :: String  -- stored as base64(salt) <> "$" <> base64(hash)
+  , userHash :: String  -- lưu dạng base64(salt) <> "$" <> base64(hash)
   } deriving (Show, Eq)
 
 instance FromRow User where
   fromRow = User <$> field <*> field <*> field
 
 --------------------------------------------------------------------------------
--- PBKDF2 parameters
+-- Tham số PBKDF2
 
 iterations :: Int
 iterations = 10000
@@ -42,7 +42,7 @@ dkLen :: Int
 dkLen = 32
 
 --------------------------------------------------------------------------------
--- PostgreSQL connection
+-- Kết nối PostgreSQL
 
 getConn :: IO (Either String Connection)
 getConn = do
@@ -71,7 +71,7 @@ getConn = do
         _ -> pure (Left "DATABASE_URL not set and individual DB env vars missing")
 
 --------------------------------------------------------------------------------
--- Ensure users table exists
+-- Tạo bảng `users` nếu chưa tồn tại
 
 ensureSchema :: IO ()
 ensureSchema = do
@@ -89,7 +89,7 @@ ensureSchema = do
       close conn
 
 --------------------------------------------------------------------------------
--- Create a new user
+-- Tạo người dùng mới
 
 createUser :: String -> String -> IO (Either String User)
 createUser name password = do
@@ -118,7 +118,7 @@ createUser name password = do
             Nothing -> pure (Left "Failed to retrieve created user")
 
 --------------------------------------------------------------------------------
--- Find user by username or id
+-- Tìm user theo tên hoặc id
 
 findUserByName :: String -> IO (Maybe User)
 findUserByName name = do
@@ -151,7 +151,7 @@ findUserById uid = do
         _     -> Nothing
 
 --------------------------------------------------------------------------------
--- Verify password
+-- Xác minh mật khẩu
 
 verifyPassword :: User -> String -> IO Bool
 verifyPassword user password = do

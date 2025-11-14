@@ -1,24 +1,24 @@
 module Config where
 
--- Network configuration
+-- Cấu hình mạng
 serverPort :: Int
 serverPort = 8080
 
 serverHost :: String
 serverHost = "127.0.0.1"
 
--- Game configuration
+-- Cấu hình game
 boardWidth :: Int
 boardWidth = 10
 
 boardHeight :: Int
 boardHeight = 10
 
--- Maximum number of players
+-- Số lượng tối đa người chơi
 maxPlayers :: Int
 maxPlayers = 2
 
--- Timeout values (in seconds)
+-- Timeout (giây)
 turnTimeout :: Int
 turnTimeout = 30
 

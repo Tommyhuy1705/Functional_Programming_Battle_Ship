@@ -9,9 +9,9 @@ type GameLock = MVar GameState
 createGameLock :: GameState -> IO GameLock
 createGameLock = newMVar
 
--- | Safely run an action that reads and updates the GameState.
--- The action receives the current GameState and returns (newState, result).
--- withGameLock returns the result and ensures the GameState is updated atomically.
+-- | Thực thi an toàn một hành động đọc/ghi GameState.
+-- Hàm nhận GameState hiện tại và trả về (trạng thái mới, kết quả).
+-- withGameLock trả về kết quả và đảm bảo cập nhật trạng thái nguyên tử.
 withGameLock :: GameLock -> (GameState -> IO (GameState, a)) -> IO a
 withGameLock lock action = modifyMVar lock $ \gs -> do
 	(gs', a) <- action gs

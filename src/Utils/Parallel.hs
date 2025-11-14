@@ -5,11 +5,11 @@ module Utils.Parallel
 
 import Control.Concurrent.Async (mapConcurrently, mapConcurrently_)
 
--- | Run a list of IO actions in parallel and collect results
--- This uses 'mapConcurrently' with the identity function.
+-- | Chạy danh sách hành động IO song song và thu kết quả
+-- Dùng 'mapConcurrently' để thực thi đồng thời
 runParallel :: [IO a] -> IO [a]
 runParallel = mapConcurrently id
 
--- | Run a list of IO actions in parallel and ignore results
+-- | Chạy danh sách hành động IO song song, bỏ qua kết quả
 runParallel_ :: [IO ()] -> IO ()
 runParallel_ = mapConcurrently_ id
